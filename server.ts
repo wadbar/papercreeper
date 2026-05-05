@@ -330,6 +330,10 @@ async function startServer() {
           if (osPlatform === "win32") file = "OpenJDK17U-jre_x64_windows_hotspot_17.0.14_7.zip";
           else if (osPlatform === "darwin") file = osArch === "arm64" ? "OpenJDK17U-jre_aarch64_mac_hotspot_17.0.14_7.tar.gz" : "OpenJDK17U-jre_x64_mac_hotspot_17.0.14_7.tar.gz";
           else file = osArch === "arm64" ? "OpenJDK17U-jre_aarch64_linux_hotspot_17.0.14_7.tar.gz" : "OpenJDK17U-jre_x64_linux_hotspot_17.0.14_7.tar.gz";
+      } else if (major === 25) {
+          if (osPlatform === "win32") file = "openjdk-25-ea+11_windows-x64_bin.zip";
+          else if (osPlatform === "darwin") file = osArch === "arm64" ? "openjdk-25-ea+11_macos-aarch64_bin.tar.gz" : "openjdk-25-ea+11_macos-x64_bin.tar.gz";
+          else file = osArch === "arm64" ? "openjdk-25-ea+11_linux-aarch64_bin.tar.gz" : "openjdk-25-ea+11_linux-x64_bin.tar.gz";
       } else {
           if (osPlatform === "win32") file = "OpenJDK21U-jre_x64_windows_hotspot_21.0.6_7.zip";
           else if (osPlatform === "darwin") file = osArch === "arm64" ? "OpenJDK21U-jre_aarch64_mac_hotspot_21.0.6_7.tar.gz" : "OpenJDK21U-jre_x64_mac_hotspot_21.0.6_7.tar.gz";
@@ -339,6 +343,7 @@ async function startServer() {
       let url = "";
       if (major === 8) url = `https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u442-b06/${file}`;
       else if (major === 17) url = `https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.14%2B7/${file}`;
+      else if (major === 25) url = `https://download.java.net/java/early_access/jdk25/11/GPL/${file}`;
       else url = `https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.6%2B7/${file}`;
 
       const tempTar = path.join(BIN_DIR, file);
@@ -1004,7 +1009,7 @@ command /creeper-ai <text>:
   });
 
   app.post("/api/server/update-config", (req, res) => {
-    const { serverId, name, ram, minRam, usePlayit, store } = req.body;
+    const { serverId, name, ram, minRam, usePlayit, store, javaPath } = req.body;
     if (!serverId)
       return res.status(404).json({ error: "Servidor não encontrado" });
 
@@ -1019,6 +1024,7 @@ command /creeper-ai <text>:
       minRam: minRam !== undefined ? minRam : config.minRam,
       usePlayit: usePlayit !== undefined ? usePlayit : config.usePlayit,
       store: store !== undefined ? store : config.store,
+      javaPath: javaPath !== undefined ? javaPath : config.javaPath,
     };
 
     saveSrvConfig(serverId, newConfig);

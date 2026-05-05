@@ -2236,6 +2236,17 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                               onChange={(e) => setEditingServer({...editingServer, javaPath: e.target.value})}
                             />
                             <button
+                              onClick={async () => {
+                                await handleUpdateServerConfig();
+                                alert("Caminho do Java salvo com sucesso! (•◡•)");
+                              }}
+                              className="bg-emerald-600 px-4 rounded-xl text-white font-black text-[8px] flex items-center gap-2 hover:bg-emerald-500 transition-all uppercase"
+                              title="Salvar Caminho Manual"
+                            >
+                              <Save size={10} />
+                              SALVAR PATH
+                            </button>
+                            <button
                               onClick={scanJavas}
                               className="bg-emerald-900 px-4 rounded-xl text-emerald-500 font-black text-[8px] flex items-center gap-2 hover:bg-emerald-800 transition-all uppercase"
                             >
@@ -2243,8 +2254,8 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                               {t("java_detect_btn")}
                             </button>
                           </div>
-                          <div className="flex gap-2 mt-2">
-                             {[8, 17, 21].map(major => (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                             {[8, 17, 21, 25].map(major => (
                                <button 
                                  key={major}
                                  onClick={async () => {
@@ -2256,7 +2267,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                                       scanJavas();
                                     } catch(e) {}
                                  }}
-                                 className="flex-1 py-2 bg-emerald-950/40 text-emerald-600 font-black text-[9px] uppercase tracking-widest rounded-lg hover:bg-emerald-800 hover:text-emerald-300 transition-colors border border-emerald-900/50"
+                                 className="flex-1 min-w-[100px] py-2 bg-emerald-950/40 text-emerald-600 font-black text-[9px] uppercase tracking-widest rounded-lg hover:bg-emerald-800 hover:text-emerald-300 transition-colors border border-emerald-900/50"
                                >
                                  ➕ Baixar Java {major}
                                </button>
