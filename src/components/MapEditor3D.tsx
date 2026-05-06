@@ -24,18 +24,15 @@ function Voxel({ position, color, onSelect }: { position: [number, number, numbe
 }
 
 export default function MapEditor3D({ serverId }: { serverId?: string }) {
-  const [blocks, setBlocks] = useState([
-    { pos: [0, 0, 0] as [number, number, number], color: 'grass' },
-    { pos: [1, 0, 0] as [number, number, number], color: 'dirt' },
-    { pos: [2, 0, 0] as [number, number, number], color: 'stone' },
-    { pos: [0, 1, 0] as [number, number, number], color: 'grass' },
-  ]);
+  const [blocks, setBlocks] = useState<{pos: [number, number, number], color: string}[]>([]);
 
   const [wandMode, setWandMode] = useState<'none'|'pos1'|'pos2'>('none');
   const [pos1, setPos1] = useState<[number, number, number] | null>(null);
   const [pos2, setPos2] = useState<[number, number, number] | null>(null);
   const [clipboard, setClipboard] = useState<{pos: [number, number, number], color: string}[]>([]);
   const [loading, setLoading] = useState(false);
+  const [worldName, setWorldName] = useState('world');
+  const [coords, setCoords] = useState({ x: 0, y: 64, z: 0 });
 
   const loadWorld = async () => {
     if (!serverId) { alert("Selecione um servidor primeiro."); return; }
@@ -43,7 +40,7 @@ export default function MapEditor3D({ serverId }: { serverId?: string }) {
     try {
       const res = await fetch("/api/world/load", { 
          method: "POST", headers: {"Content-Type": "application/json"},
-         body: JSON.stringify({ serverId, x: 0, y: 64, z: 0, size: 8 }) 
+         body: JSON.stringify({ serverId, worldName, x: coords.x, y: coords.y, z: coords.z, size: 16 }) 
       });
       const data = await res.json();
       if (data.error) {
@@ -52,14 +49,39 @@ export default function MapEditor3D({ serverId }: { serverId?: string }) {
       }
       if (data.blocks) {
          const mapped = data.blocks.map((b: any) => ({
-            pos: [b.pos[0] - 4, b.pos[1], b.pos[2] - 4], 
+            pos: [b.pos[0] + coords.x, b.pos[1] + coords.y, b.pos[2] + coords.z], 
             color: b.stateId === 2 ? 'grass' : b.stateId === 3 ? 'dirt' : 'stone'
          }));
-         setBlocks([...blocks, ...mapped]);
-         alert(`Carregados ${data.blocks.length} blocos do chunk (0,64,0) de forma simplificada!`);
+         setBlocks(mapped);
+         alert(`Map Engine: Carregados ${data.blocks.length} blocos do chunk (${Math.floor(coords.x/16)},${Math.floor(coords.z/16)}) do mundo "${worldName}"! (Modo Simplificado)`);
       }
     } catch(e) {
       alert("Erro de conexão com Map Engine.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveWorld = async () => {
+    if (!serverId) { alert("Selecione um servidor primeiro."); return; }
+    setLoading(true);
+    
+    // Normalize absolute positions back to local dx, dy, dz relative to coords
+    const normalizedBlocks = blocks.map(b => ({
+       pos: [b.pos[0] - coords.x, b.pos[1] - coords.y, b.pos[2] - coords.z],
+       color: b.color
+    }));
+
+    try {
+      const res = await fetch("/api/world/save", { 
+         method: "POST", headers: {"Content-Type": "application/json"},
+         body: JSON.stringify({ serverId, worldName, x: coords.x, y: coords.y, z: coords.z, blocks: normalizedBlocks }) 
+      });
+      const data = await res.json();
+      if (data.success) alert("Mapa salvo com sucesso!");
+      else alert(data.error || "Erro ao salvar.");
+    } catch(e) {
+      alert("Erro de conexão.");
     } finally {
       setLoading(false);
     }
@@ -176,34 +198,72 @@ export default function MapEditor3D({ serverId }: { serverId?: string }) {
   };
 
   return (
-    <div className="w-full h-full relative border-4 border-emerald-900 rounded-[2rem] overflow-hidden bg-zinc-950 flex flex-col mt-4">
-       <div className="absolute top-0 left-0 w-full z-10 bg-emerald-950/90 p-3 flex gap-2 border-b-2 border-emerald-900 shadow-md flex-wrap">
-          <button onClick={addBlock} className="px-3 py-1 bg-emerald-600 text-[10px] font-black uppercase rounded text-white hover:bg-emerald-500 shadow-sm border-b-2 border-emerald-800 active:translate-y-[2px] active:border-b-0">+ Adicionar</button>
-          <button onClick={toggleWand} className={`px-3 py-1 ${wandMode !== 'none' ? 'bg-red-800 text-red-200' : 'bg-zinc-800 text-emerald-400'} text-[10px] font-black uppercase rounded hover:bg-zinc-700 shadow-sm border-b-2 border-zinc-950 active:translate-y-[2px] active:border-b-0`}>{wandMode !== 'none' ? 'Cancel Wand' : '//wand'}</button>
-          <button onClick={handleCopy} className="px-3 py-1 bg-zinc-800 text-[10px] font-black uppercase rounded text-emerald-400 hover:bg-zinc-700 shadow-sm border-b-2 border-zinc-950 active:translate-y-[2px] active:border-b-0">//copy</button>
-          <button onClick={handlePaste} className="px-3 py-1 bg-zinc-800 text-[10px] font-black uppercase rounded text-emerald-400 hover:bg-zinc-700 shadow-sm border-b-2 border-zinc-950 active:translate-y-[2px] active:border-b-0">//paste</button>
-          <button onClick={handleExportSchematic} className="px-3 py-1 bg-amber-600 text-[10px] font-black uppercase rounded text-white hover:bg-amber-500 shadow-sm border-b-2 border-amber-800 active:translate-y-[2px] active:border-b-0">Export</button>
-          <label className="px-3 py-1 cursor-pointer bg-amber-600 text-[10px] font-black uppercase rounded text-white hover:bg-amber-500 shadow-sm border-b-2 border-amber-800 active:translate-y-[2px] active:border-b-0">
-             Import
-             <input type="file" accept=".json" className="hidden" onChange={handleImportSchematic} />
-          </label>
-          <button onClick={loadWorld} disabled={loading} className="px-3 py-1 bg-blue-600 text-[10px] font-black uppercase rounded text-white hover:bg-blue-500 shadow-sm border-b-2 border-blue-800 active:translate-y-[2px] active:border-b-0">{loading ? 'CARREGANDO...' : 'CARREGAR MUNDO REAL'}</button>
+    <div className="w-full h-full relative border-4 border-emerald-900 rounded-3xl overflow-hidden bg-zinc-950 flex flex-col sm:flex-row mt-4 min-h-[60vh]">
+       {/* Sidebar Controls */}
+       <div className="w-full sm:w-64 bg-emerald-950/90 p-4 flex flex-col gap-3 border-b-2 sm:border-b-0 sm:border-r-2 border-emerald-900 shadow-md sm:max-h-[60vh] overflow-y-auto custom-scrollbar z-10 shrink-0">
+          <div className="text-emerald-400 font-black text-xs space-y-1 mb-2 border-b border-emerald-900/50 pb-2">
+             <div className="flex items-center gap-2">
+               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+               MCEDIT VIRTUAL ENGINE
+             </div>
+             <div className="text-[9px] text-emerald-600">Simplified Viewer</div>
+          </div>
+
+          <div className="space-y-2">
+             <label className="text-[10px] font-bold text-emerald-500 uppercase">World Folder Name</label>
+             <input type="text" value={worldName} onChange={(e) => setWorldName(e.target.value)} className="w-full bg-zinc-900 border border-emerald-900 rounded p-1 text-xs text-emerald-400" placeholder="world" />
+          </div>
+          
+          <div className="flex gap-2">
+             <div className="flex-1 space-y-1">
+               <label className="text-[10px] font-bold text-emerald-500 uppercase">X</label>
+               <input type="number" value={coords.x} onChange={(e) => setCoords({...coords, x: parseInt(e.target.value)||0})} className="w-full bg-zinc-900 border border-emerald-900 rounded p-1 text-xs text-white" />
+             </div>
+             <div className="flex-1 space-y-1">
+               <label className="text-[10px] font-bold text-emerald-500 uppercase">Y</label>
+               <input type="number" value={coords.y} onChange={(e) => setCoords({...coords, y: Math.max(0, parseInt(e.target.value)||0)})} className="w-full bg-zinc-900 border border-emerald-900 rounded p-1 text-xs text-white" />
+             </div>
+             <div className="flex-1 space-y-1">
+               <label className="text-[10px] font-bold text-emerald-500 uppercase">Z</label>
+               <input type="number" value={coords.z} onChange={(e) => setCoords({...coords, z: parseInt(e.target.value)||0})} className="w-full bg-zinc-900 border border-emerald-900 rounded p-1 text-xs text-white" />
+             </div>
+          </div>
+
+          <button onClick={loadWorld} disabled={loading} className="w-full py-2 bg-blue-600 text-[10px] font-black uppercase rounded text-white hover:bg-blue-500 shadow-sm border-b-2 border-blue-800 active:translate-y-[2px] active:border-b-0 transition-all">{loading ? 'CARREGANDO...' : '1. CARREGAR CHUNK'}</button>
+          
+          <button onClick={saveWorld} disabled={loading || blocks.length === 0} className="w-full py-2 bg-pink-600 text-[10px] font-black uppercase rounded text-white hover:bg-pink-500 shadow-sm border-b-2 border-pink-800 active:translate-y-[2px] active:border-b-0 transition-all disabled:opacity-50">{loading ? 'SALVANDO...' : '2. SALVAR MUNDO!'}</button>
+
+          <div className="border-t border-emerald-900/50 my-2"></div>
+          
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => setBlocks([])} className="col-span-2 px-2 py-2 bg-red-900 border-b-2 border-red-950 text-[10px] font-black uppercase rounded text-red-400 hover:bg-red-800 shadow-sm active:translate-y-[2px] active:border-b-0">LIMPAR VIEWPORT</button>
+            <button onClick={addBlock} className="px-2 py-2 bg-emerald-600 text-[10px] font-black uppercase rounded text-white hover:bg-emerald-500 shadow-sm border-b-2 border-emerald-800 active:translate-y-[2px] active:border-b-0">+ Bloco</button>
+            <button onClick={toggleWand} className={`px-2 py-2 ${wandMode !== 'none' ? 'bg-red-800 text-red-200' : 'bg-zinc-800 text-emerald-400'} text-[10px] font-black uppercase rounded hover:bg-zinc-700 shadow-sm border-b-2 border-zinc-950 active:translate-y-[2px] active:border-b-0`}>{wandMode !== 'none' ? 'Cancel' : '//wand'}</button>
+            <button onClick={handleCopy} className="px-2 py-2 bg-zinc-800 text-[10px] font-black uppercase rounded text-emerald-400 hover:bg-zinc-700 shadow-sm border-b-2 border-zinc-950 active:translate-y-[2px] active:border-b-0">//copy</button>
+            <button onClick={handlePaste} className="px-2 py-2 bg-zinc-800 text-[10px] font-black uppercase rounded text-emerald-400 hover:bg-zinc-700 shadow-sm border-b-2 border-zinc-950 active:translate-y-[2px] active:border-b-0">//paste</button>
+            <button onClick={handleExportSchematic} className="px-2 py-2 bg-amber-600 text-[10px] font-black uppercase rounded text-white hover:bg-amber-500 shadow-sm border-b-2 border-amber-800 active:translate-y-[2px] active:border-b-0">Export</button>
+            <label className="px-2 py-2 cursor-pointer bg-amber-600 text-[10px] font-black uppercase rounded text-white hover:bg-amber-500 shadow-sm border-b-2 border-amber-800 active:translate-y-[2px] active:border-b-0 text-center">
+               Import
+               <input type="file" accept=".json" className="hidden" onChange={handleImportSchematic} />
+            </label>
+          </div>
+
           {wandMode !== 'none' && (
-             <span className="ml-2 text-red-400 text-[10px] font-black uppercase self-center animate-pulse">Selecione {wandMode === 'pos1' ? 'Posição 1' : 'Posição 2'}</span>
+             <div className="text-red-400 text-[10px] font-black uppercase animate-pulse text-center mt-2 bg-red-950/30 py-1 rounded">
+               Status: Selecione {wandMode === 'pos1' ? 'Posição 1' : 'Posição 2'}
+             </div>
           )}
-          <span className="ml-auto text-emerald-400 font-black text-[10px] self-center pr-2 tracking-widest flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-            MCEDIT VIRTUAL ENGINE
-          </span>
        </div>
-       <div className="flex-1 w-full min-h-[500px]">
-         <Canvas camera={{ position: [5, 5, 5], fov: 50 }}>
+
+       {/* 3D Viewport */}
+       <div className="flex-1 w-full min-h-[400px] relative">
+         <Canvas camera={{ position: [coords.x + 10, coords.y + 10, coords.z + 10], fov: 50 }}>
             <ambientLight intensity={0.5} />
-            <pointLight position={[10, 10, 10]} intensity={1} />
+            <pointLight position={[coords.x + 10, coords.y + 20, coords.z + 10]} intensity={1} />
             <Sky sunPosition={[100, 20, 100]} />
             <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-            <OrbitControls makeDefault />
-            <gridHelper args={[20, 20, 0x444444, 0x222222]} />
+            <OrbitControls makeDefault target={[coords.x, coords.y, coords.z]} />
+            <gridHelper args={[40, 40, 0x444444, 0x222222]} position={[coords.x, coords.y - 1, coords.z]} />
             
             {blocks.map((b, i) => (
               <Voxel key={i} position={b.pos} color={b.color === 'grass' ? '#4ade80' : b.color === 'dirt' ? '#854d0e' : '#a1a1aa'} onSelect={handleSelect} />

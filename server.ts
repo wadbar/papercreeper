@@ -680,10 +680,10 @@ async function startServer() {
 
   // --- World Editor API ---
   app.post("/api/world/load", async (req, res) => {
-    const { serverId, x, y, z, size } = req.body;
+    const { serverId, worldName, x, y, z, size } = req.body;
     try {
       const srvDir = getServerDir(serverId);
-      const worldPath = path.join(srvDir, "world");
+      const worldPath = path.join(srvDir, worldName || "world");
       if (!fs.existsSync(worldPath)) return res.json({ error: "Mundo não encontrado ou servidor não gerou o world." });
 
       let AnvilPkg: any, ChunkPkg: any, registry: any;
@@ -700,7 +700,7 @@ async function startServer() {
       const AnvilWorld = Anvil("1.20.1");
       const worldProvider = new AnvilWorld(path.join(worldPath, "region"));
 
-      const loadSize = Math.min(size || 16, 32); 
+      const loadSize = Math.min(size || 16, 16); 
       const startX = Math.floor(x || 0);
       const startY = Math.floor(y || 64);
       const startZ = Math.floor(z || 0);
@@ -721,10 +721,16 @@ async function startServer() {
            for (let dx = 0; dx < loadSize; dx++) {
              for (let dy = 0; dy < loadSize; dy++) {
                for (let dz = 0; dz < loadSize; dz++) {
-                 const bx = startX + dx;
+                 // Calculate local block coordinate inside this 16x16 chunk area
+                 // Using modulo to ensure it stays within 0-15
+                 const localX = (startX + dx) % 16;
+                 const localZ = (startZ + dz) % 16;
+                 
+                 const bx = (localX < 0 ? localX + 16 : localX);
                  const by = startY + dy;
-                 const bz = startZ + dz;
-                 const b = chunk.getBlockStateId({ x: bx % 16, y: by, z: bz % 16 } as any);
+                 const bz = (localZ < 0 ? localZ + 16 : localZ);
+                 
+                 const b = chunk.getBlockStateId({ x: bx, y: by, z: bz } as any);
                  if (b > 0) { // Air is 0
                    blocks.push({ pos: [dx, dy, dz], color: 'stone', stateId: b });
                  }
@@ -738,6 +744,81 @@ async function startServer() {
 
       res.json({ blocks, origin: [startX, startY, startZ] });
     } catch(e: any) {
+      res.json({ error: e.message });
+    }
+  });
+
+  app.post("/api/world/save", async (req, res) => {
+    const { serverId, worldName, x, y, z, blocks } = req.body;
+    try {
+      const srvDir = getServerDir(serverId);
+      const worldPath = path.join(srvDir, worldName || "world");
+      if (!fs.existsSync(worldPath)) return res.json({ error: "Mundo não encontrado." });
+
+      let AnvilPkg: any, ChunkPkg: any, registry: any;
+      try {
+        AnvilPkg = await import("prismarine-provider-anvil");
+        ChunkPkg = await import("prismarine-chunk");
+        const registryAll = await import("prismarine-registry");
+        registry = registryAll.default ? registryAll.default("1.20.1") : (registryAll as any)("1.20.1");
+      } catch (err: any) {
+        return res.json({ error: "Dependências não encontradas." });
+      }
+
+      const Anvil = AnvilPkg.default ? AnvilPkg.default.Anvil : AnvilPkg.Anvil;
+      const AnvilWorld = Anvil("1.20.1");
+      const worldProvider = new AnvilWorld(path.join(worldPath, "region"));
+
+      const startX = Math.floor(x || 0);
+      const startY = Math.floor(y || 64);
+      const startZ = Math.floor(z || 0);
+      
+      const chunkX = Math.floor(startX / 16);
+      const chunkZ = Math.floor(startZ / 16);
+
+      const chunkData = await worldProvider.load(chunkX, chunkZ);
+      if (!chunkData) return res.json({ error: "Chunk não gerado no mapa ainda." });
+
+      const PrisChunk = ChunkPkg.default ? ChunkPkg.default(registry) : ChunkPkg(registry);
+      const chunk: any = new PrisChunk(null);
+      if (chunk.loadLight) chunk.loadLight(chunkData.light);
+      if (chunk.load) chunk.load(chunkData.chunk, chunkData.bitmaps);
+
+      // Limpa os blocos atuais dessa área e insere os novos baseados no array enviado do frontend
+      for (const b of (blocks || [])) {
+         // b.pos is [localX, y, localZ] directly relative to the chunk bounding box we rendered
+         // Note: we need the absolute block position first to map into the relative chunk correctly
+         const absX = startX + b.pos[0];
+         const absY = startY + b.pos[1];
+         const absZ = startZ + b.pos[2];
+
+         const localX = absX % 16;
+         const localZ = absZ % 16;
+         
+         const bx = (localX < 0 ? localX + 16 : localX);
+         const by = absY;
+         const bz = (localZ < 0 ? localZ + 16 : localZ);
+
+         // Determine state ID based on color if stateId is missing
+         // 0: Air, 1: Stone, 2: Grass, 3: Dirt, etc.
+         let stId = 1; // Stone default
+         if (b.color === 'grass') stId = 2;
+         if (b.color === 'dirt') stId = 3;
+
+         chunk.setBlockStateId({ x: bx, y: by, z: bz } as any, stId);
+      }
+
+      const newChunkData = {
+          chunk: chunk.dump(),
+          bitmaps: chunk.dumpBitmaps ? chunk.dumpBitmaps() : undefined,
+          light: chunk.dumpLight ? chunk.dumpLight() : undefined
+      };
+
+      await worldProvider.save(chunkX, chunkZ, newChunkData);
+      
+      res.json({ success: true });
+    } catch(e: any) {
+      console.error(e);
       res.json({ error: e.message });
     }
   });

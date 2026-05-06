@@ -3536,8 +3536,8 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                     {t("map_editor_desc")}
                   </p>
 
-                  <div className="flex flex-col items-center gap-4 w-full max-w-2xl shrink-0">
-                    <div className="grid grid-cols-2 gap-3 w-full">
+                  <div className={`flex flex-col items-center gap-4 w-full ${showEditor3D || showBlueMap ? 'max-w-full' : 'max-w-3xl'} shrink-0`}>
+                    <div className="flex flex-wrap justify-center gap-2 w-full">
                       <button
                         onClick={() => {
                           if (!currentServerId)
@@ -3566,23 +3566,23 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                           };
                           input.click();
                         }}
-                        className="w-full py-3 rounded-xl flex items-center justify-center gap-2 font-black text-[9px] uppercase shadow-lg transition-transform active:scale-95 border-b-4 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 border-emerald-700"
+                        className="px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 font-black text-[9px] uppercase shadow-md transition-transform active:scale-95 border-b-2 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 border-emerald-700"
                       >
-                        <UploadCloud size={14} /> {t("map_upload_zip")}
+                        <UploadCloud size={12} /> {t("map_upload_zip")}
                       </button>
 
                       <button
                         onClick={() => setShowBlueMap(!showBlueMap)}
-                        className="w-full py-3 rounded-xl flex items-center justify-center gap-2 font-black text-[9px] uppercase shadow-lg transition-transform active:scale-95 border-b-4 bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-800"
+                        className={`px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 font-black text-[9px] uppercase shadow-md transition-transform active:scale-95 border-b-2 ${showBlueMap ? 'bg-red-600 hover:bg-red-500 border-red-800' : 'bg-emerald-600 hover:bg-emerald-500 border-emerald-800'} text-white`}
                       >
-                        <Globe size={14} /> {showBlueMap ? "Fechar Web (Map Engine)" : "Abrir Web (Map Engine)"}
+                        <Globe size={12} /> {showBlueMap ? "Fechar Web (BlueMap)" : "Abrir Web (BlueMap)"}
                       </button>
 
                       <button
                         onClick={() => setShowEditor3D(!showEditor3D)}
-                        className="w-full col-span-2 py-3 rounded-xl flex items-center justify-center gap-2 font-black text-[9px] uppercase shadow-lg transition-transform active:scale-95 border-b-4 bg-purple-600 hover:bg-purple-500 text-white border-purple-800"
+                        className={`px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 font-black text-[9px] uppercase shadow-md transition-transform active:scale-95 border-b-2 ${showEditor3D ? 'bg-red-600 hover:bg-red-500 border-red-800' : 'bg-purple-600 hover:bg-purple-500 border-purple-800'} text-white`}
                       >
-                        <Box size={14} /> {showEditor3D ? "Fechar MCEdit (3D Web)" : "Abrir MCEdit (3D Web)"}
+                        <Box size={12} /> {showEditor3D ? "Fechar MCEdit (3D Web)" : "Abrir MCEdit (3D Web)"}
                       </button>
 
                       <button
@@ -3594,9 +3594,9 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                           searchStore("bluemap");
                           setEditingServer(servers.find(s => s.id === currentServerId) || null);
                         }}
-                        className="w-full py-3 rounded-xl flex items-center justify-center gap-2 font-black text-[9px] uppercase shadow-lg transition-transform active:scale-95 border-b-4 bg-zinc-800 hover:bg-zinc-700 text-blue-400 border-zinc-950"
+                        className="px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 font-black text-[9px] uppercase shadow-md transition-transform active:scale-95 border-b-2 bg-zinc-800 hover:bg-zinc-700 text-blue-400 border-zinc-950"
                       >
-                        <RefreshCw size={14} /> Instalar / Atualizar Engine
+                        <RefreshCw size={12} /> Engine Mods
                       </button>
 
                       <button
@@ -3604,9 +3604,9 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                           setActiveTab("files");
                           setCurrentFolder("plugins/WorldEdit/schematics");
                         }}
-                        className="w-full py-3 rounded-xl flex items-center justify-center gap-2 font-black text-[9px] uppercase shadow-lg transition-transform active:scale-95 border-b-4 bg-zinc-800 hover:bg-zinc-700 text-emerald-400 border-zinc-950"
+                        className="px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 font-black text-[9px] uppercase shadow-md transition-transform active:scale-95 border-b-2 bg-zinc-800 hover:bg-zinc-700 text-emerald-400 border-zinc-950"
                       >
-                        <Folder size={14} /> {t("map_view_schematics")}
+                        <Folder size={12} /> Schematics
                       </button>
 
                       <button
@@ -3614,9 +3614,9 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                           setActiveTab("files");
                           setCurrentFolder("");
                         }}
-                        className="w-full py-3 rounded-xl flex items-center justify-center gap-2 font-black text-[9px] uppercase shadow-lg transition-transform active:scale-95 border-b-4 bg-zinc-800 hover:bg-zinc-700 text-emerald-400 border-zinc-950"
+                        className="px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 font-black text-[9px] uppercase shadow-md transition-transform active:scale-95 border-b-2 bg-zinc-800 hover:bg-zinc-700 text-emerald-400 border-zinc-950"
                       >
-                        <Map size={14} /> {t("map_view_worlds")}
+                        <Map size={12} /> Worlds
                       </button>
                     </div>
 
