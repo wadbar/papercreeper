@@ -1511,6 +1511,41 @@ command /creeper-ai <text>:
 
       args.push("-Dfile.encoding=UTF-8");
 
+      // Auto-assign free port
+      try {
+        const net = await import("net");
+        const getFreePort = (startPort: number): Promise<number> => new Promise((resolve) => {
+          let port = startPort;
+          const testPort = () => {
+             const s = net.createServer();
+             s.listen(port, "0.0.0.0", () => {
+               s.once('close', () => resolve(port));
+               s.close();
+             });
+             s.on('error', () => { port++; testPort(); });
+          };
+          testPort();
+        });
+
+        const propsPath = path.join(srvDir, "server.properties");
+        if (!fs.existsSync(propsPath)) {
+          fs.writeFileSync(propsPath, "server-port=25565\nonline-mode=false\n");
+        }
+        
+        let props = fs.readFileSync(propsPath, "utf-8");
+        const match = props.match(/server-port=(\d+)/);
+        let wantedPort = match ? parseInt(match[1]) : 25565;
+        
+        const freePort = await getFreePort(wantedPort);
+        if (freePort !== wantedPort) {
+           props = props.replace(/server-port=\d+/, `server-port=${freePort}`);
+           fs.writeFileSync(propsPath, props);
+           addLog(serverId, `[INFO] Porta ${wantedPort} em uso. Trocada para: ${freePort}`);
+        }
+      } catch(e) {
+         console.warn("Failed to check free port", e);
+      }
+
       if (fs.existsSync(runShPath)) {
         addLog(serverId, `[INFO] Usando script run.sh em vez de JAR direto...`);
         command = "sh";

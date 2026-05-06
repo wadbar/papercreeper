@@ -690,8 +690,23 @@ export default function App({
       const res = await fetch("/api/servers");
       const data = await res.json();
       setServers(data.servers || []);
-      if (!currentServerId && data.servers?.length > 0) {
-        setCurrentServerId(data.servers[0].id);
+      const srvs = data.servers || [];
+
+      let firstId = currentServerId;
+      if (!firstId && srvs.length > 0) {
+        firstId = srvs[0].id;
+        setCurrentServerId(firstId);
+      }
+
+      const activeIds = srvs
+        .filter((s:any) => (s.status === "online" || s.status === "starting") && s.id !== firstId)
+        .map((s:any) => s.id);
+
+      if (activeIds.length > 0) {
+         setMultiTerminals(prev => {
+           const set = new Set([...prev, ...activeIds]);
+           return Array.from(set);
+         });
       }
     } catch (e) {}
   };
@@ -3455,7 +3470,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                               Playit roteará o tráfego automaticamente para este
                               PC.
                             </p>
-                            {playitStatus.tunnel && (
+                            {playitStatus.tunnel ? (
                               <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-900 flex justify-between items-center px-4">
                                 <span className="text-zinc-300 font-mono text-xs font-bold">
                                   {playitStatus.tunnel}
@@ -3471,6 +3486,13 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                                 >
                                   <Copy size={14} />
                                 </button>
+                              </div>
+                            ) : (
+                              <div className="p-3 bg-amber-900/20 rounded-xl border border-amber-900/50 flex flex-col px-4 text-center mt-2 group hover:bg-amber-900/40 transition-all cursor-crosshair">
+                                 <span className="text-amber-500 font-mono text-[10px] font-bold">
+                                   AGUARDANDO ENDEREÇO IP...
+                                 </span>
+                                 <span className="text-zinc-400 text-[9px] mt-1 leading-relaxed">Playit conectado. Pode demorar alguns segundos. Vá em painel da Playit.gg se ele não aparecer.</span>
                               </div>
                             )}
                           </div>
@@ -4031,9 +4053,12 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          <button
-                          onClick={() =>
-                            setModules((m) => ({ ...m, server_hibernation: !m.server_hibernation }))
-                          }
+                          onClick={() => {
+                            setModules((m) => ({ ...m, server_hibernation: !m.server_hibernation }));
+                            if (!modules.server_hibernation) {
+                               alert("⚠️ AVISO IMPORTANTE: O Google Cloud Run suspende servidores sem atividade.\n\nPara que o servidor sobreviva com a página fechada, configure um monitor gratuito no [UptimeRobot.com] apontando para a sua SHARED APP URL.\n\nEssa aba de Hibernação prepara o servidor para manter os processos abertos no background quando o Ping acontecer.");
+                            }
+                          }}
                           className={`p-4 rounded-2xl flex flex-col items-center justify-center gap-2 font-black text-[10px] transition-all border-2 ${modules.server_hibernation ? "bg-amber-600 border-amber-400 text-white shadow-lg" : "bg-black/10 border-amber-950/20 text-amber-900/50 hover:border-amber-500"}`}
                         >
                           <Moon size={20} /> HIBERNAÇÃO (MANTER ONLINE)
@@ -4491,20 +4516,22 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                          })}
                        </div>
                        <div className="flex items-center gap-2 justify-end">
-                         <button
-                           onClick={async () => {
-                             if (!currentServerId) return;
-                             const res = await fetch("/api/bot/control", {
-                               method: "POST",
-                               headers: { "Content-Type": "application/json" },
-                               body: JSON.stringify({ serverId: currentServerId, action: "start", port: servers.find(s => s.id === currentServerId)?.port || 25565 }) // assume "start", logic can be improved
-                             });
-                             if (res.ok) alert("Comando enviado para o Bot IA! Verifique o console.");
-                           }}
-                           className="px-4 py-2 bg-purple-900/40 hover:bg-purple-800 text-purple-400 font-bold rounded-xl border border-purple-800 flex items-center gap-2 transition-colors text-xs"
-                         >
-                           <Bot size={14} /> Ativar IA Ajudante
-                         </button>
+                         {modules.ai_bot && (
+                           <button
+                             onClick={async () => {
+                               if (!currentServerId) return;
+                               const res = await fetch("/api/bot/spawn", {
+                                 method: "POST",
+                                 headers: { "Content-Type": "application/json" },
+                                 body: JSON.stringify({ serverId: currentServerId, botName: "AjudanteIA" })
+                               });
+                               if (res.ok) alert("Ajudante IA ativado e entrando no servidor! Verifique o console.");
+                             }}
+                             className="px-4 py-2 bg-purple-900/40 hover:bg-purple-800 text-purple-400 font-bold rounded-xl border border-purple-800 flex items-center gap-2 transition-colors text-xs"
+                           >
+                             <Bot size={14} /> Ativar IA Ajudante
+                           </button>
+                         )}
                          <button
                            onClick={clearLogs}
                            className="px-4 py-2 bg-emerald-900/40 hover:bg-emerald-800 text-emerald-400 font-bold rounded-xl border border-emerald-800 flex items-center gap-2 transition-colors text-xs"
