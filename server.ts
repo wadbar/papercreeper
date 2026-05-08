@@ -538,9 +538,23 @@ async function startServer() {
         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
       });
       const html = await searchRes.text();
-      const texts = html.match(/<a class="result__snippet[^>]*>([^<]+)<\/a>/g) || [];
-      const results = texts.map(t => t.replace(/<[^>]+>/g, '')).slice(0, 5).join("\n");
-      res.json({ results: results || "Sem resultados." });
+      const texts = html.match(/<a class="result__snippet[^>]*>([\s\S]*?)<\/a>/g) || [];
+      const urls = html.match(/<a class="result__url" href="([^"]+)">/g) || [];
+      
+      const results = [];
+      for (let i = 0; i < Math.min(texts.length, 5); i++) {
+         let txt = texts[i].replace(/<[^>]+>/g, '').trim();
+         let url = "";
+         if (urls[i]) {
+            let u = urls[i].match(/href="([^"]+)"/)?.[1] || "";
+            if (u.startsWith('//duckduckgo.com/l/?uddg=')) {
+               u = decodeURIComponent(u.split('uddg=')[1].split('&')[0]);
+            }
+            url = u;
+         }
+         results.push(`Conteúdo: ${txt}\nFonte: ${url}`);
+      }
+      res.json({ results: results.join("\n\n") || "Sem resultados." });
     } catch (e: any) {
       res.json({ error: e.message });
     }
@@ -549,8 +563,13 @@ async function startServer() {
   app.post("/api/ai/web/fetch", async (req, res) => {
     try {
       const fetchRes = await fetch(req.body.url);
-      const text = await fetchRes.text();
-      res.json({ text: text.substring(0, 3000) }); // return only first 3k chars to avoid blowing up memory
+      const htmlText = await fetchRes.text();
+      // Remover scripts e styles primeiro, depois outras tags HTML
+      let cleanText = htmlText.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+      cleanText = cleanText.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+      cleanText = cleanText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      
+      res.json({ text: cleanText.substring(0, 8000) }); // Envia até 8000 caracteres de texto limpo
     } catch (e: any) {
       res.json({ error: e.message });
     }

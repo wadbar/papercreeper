@@ -1737,6 +1737,9 @@ export default function App({
       }
 
       const data = await res?.json();
+      if (data && data.results) return data.results;
+      if (data && data.text) return data.text;
+      if (data && data.error) return `Erro: ${data.error}`;
       return JSON.stringify(data || { success: true });
     } catch (error) {
       return `Erro ao executar ferramenta: ${error}`;
@@ -1792,7 +1795,10 @@ export default function App({
 
         // Pass the result back to the IA for a final natural language response
         const secondResult = await askAI(
-          `O sistema retornou: ${toolResult}. Comunique isso ao usuário.`,
+          `Ação concluída. Resultado:
+${toolResult}
+
+Por favor, explique ou detalhe esse resultado para mim de forma natural e amigável. Não use JSON.`,
           context,
           currentServerId,
           aiProvider,
