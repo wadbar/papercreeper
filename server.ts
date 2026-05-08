@@ -743,7 +743,11 @@ async function startServer() {
                         if (b === 2 || b === 9 || b === 10) color = 'grass';
                         else if (b === 3 || b === 11 || b === 12) color = 'dirt';
                         else if (b === 17 || b === 18) color = 'wood'; // Simplification
-                        blocks.push({ pos: [dx, by, dz], color, stateId: b });
+                        
+                        const absX = (chunkX * 16) + dx;
+                        const absZ = (chunkZ * 16) + dz;
+                        
+                        blocks.push({ pos: [absX, by, absZ], color, stateId: b });
                      }
                   }
                 }
@@ -764,7 +768,7 @@ async function startServer() {
   });
 
   app.post("/api/world/save", async (req, res) => {
-    const { serverId, worldName, x, y, z, blocks } = req.body;
+    const { serverId, worldName, blocks } = req.body;
     try {
       const srvDir = getServerDir(serverId);
       const worldPath = path.join(srvDir, worldName || "world");
@@ -784,52 +788,55 @@ async function startServer() {
       const AnvilWorld = Anvil("1.20.1");
       const worldProvider = new AnvilWorld(path.join(worldPath, "region"));
 
-      const startX = Math.floor(x || 0);
-      const startY = Math.floor(y || 64);
-      const startZ = Math.floor(z || 0);
-      
-      const chunkX = Math.floor(startX / 16);
-      const chunkZ = Math.floor(startZ / 16);
-
-      const chunkData = await worldProvider.load(chunkX, chunkZ);
-      if (!chunkData) return res.json({ error: "Chunk não gerado no mapa ainda." });
-
       const PrisChunk = ChunkPkg.default ? ChunkPkg.default(registry) : ChunkPkg(registry);
-      const chunk: any = new PrisChunk(null);
-      if (chunk.loadLight) chunk.loadLight(chunkData.light);
-      if (chunk.load) chunk.load(chunkData.chunk, chunkData.bitmaps);
-
-      // Limpa os blocos atuais dessa área e insere os novos baseados no array enviado do frontend
+      
+      // Group blocks by chunk coordinates
+      const chunksMap = new Map<string, Array<any>>();
       for (const b of (blocks || [])) {
-         // b.pos is [localX, y, localZ] directly relative to the chunk bounding box we rendered
-         // Note: we need the absolute block position first to map into the relative chunk correctly
-         const absX = startX + b.pos[0];
-         const absY = startY + b.pos[1];
-         const absZ = startZ + b.pos[2];
-
-         const localX = absX % 16;
-         const localZ = absZ % 16;
+         const bx = Math.floor(b.pos[0]);
+         const by = Math.floor(b.pos[1]);
+         const bz = Math.floor(b.pos[2]);
          
-         const bx = (localX < 0 ? localX + 16 : localX);
-         const by = absY;
-         const bz = (localZ < 0 ? localZ + 16 : localZ);
-
-         // Determine state ID based on color if stateId is missing
-         // 0: Air, 1: Stone, 2: Grass, 3: Dirt, etc.
-         let stId = 1; // Stone default
-         if (b.color === 'grass') stId = 2;
-         if (b.color === 'dirt') stId = 3;
-
-         chunk.setBlockStateId({ x: bx, y: by, z: bz } as any, stId);
+         const cx = Math.floor(bx / 16);
+         const cz = Math.floor(bz / 16);
+         const key = `${cx},${cz}`;
+         if (!chunksMap.has(key)) chunksMap.set(key, []);
+         chunksMap.get(key)!.push({ bx, by, bz, color: b.color });
       }
 
-      const newChunkData = {
-          chunk: chunk.dump(),
-          bitmaps: chunk.dumpBitmaps ? chunk.dumpBitmaps() : undefined,
-          light: chunk.dumpLight ? chunk.dumpLight() : undefined
-      };
+      for (const [key, chunkBlocks] of chunksMap.entries()) {
+         const parts = key.split(",");
+         const cx = parseInt(parts[0]);
+         const cz = parseInt(parts[1]);
+         
+         const chunkData = await worldProvider.load(cx, cz);
+         if (!chunkData) continue; // skip ungenerated
 
-      await worldProvider.save(chunkX, chunkZ, newChunkData);
+         const chunk: any = new PrisChunk(null);
+         if (chunk.loadLight) chunk.loadLight(chunkData.light);
+         if (chunk.load) chunk.load(chunkData.chunk, chunkData.bitmaps);
+
+         for (const b of chunkBlocks) {
+            const localX = b.bx % 16;
+            const localZ = b.bz % 16;
+            
+            const lx = (localX < 0 ? localX + 16 : localX);
+            const ly = b.by;
+            const lz = (localZ < 0 ? localZ + 16 : localZ);
+
+            let stId = 1; // Stone
+            if (b.color === 'grass') stId = 2;
+            if (b.color === 'dirt') stId = 3;
+
+            chunk.setBlockStateId({ x: lx, y: ly, z: lz } as any, stId);
+         }
+         
+         await worldProvider.save(cx, cz, {
+             chunk: chunk.dump(),
+             bitmaps: chunk.dumpBitmaps ? chunk.dumpBitmaps() : undefined,
+             light: chunk.dumpLight ? chunk.dumpLight() : undefined
+         });
+      }
       
       res.json({ success: true });
     } catch(e: any) {
@@ -889,10 +896,16 @@ ${opts.ai_memory ? `- "saveMemory": Salva um fato ou informação importante no 
 ${opts.ai_bot ? `- "spawnBot": Cria um Bot In-Game virtual para jogar e ler chat (args: { "botName": "..." })` : ''}
 
 FORMATO DE RESPOSTA OBRIGATÓRIO PARA AÇÕES:
+MÉTODO 1 (Padrão JSON):
 Quando decidir realizar uma ação técnica, inclua no final da sua resposta estritamente este bloco JSON:
 [ACTION:{"name": "nomeDaFerramenta", "args": {"parametro": "valor"}}]
-
 Exemplo: "Vou deixar de dia! [ACTION:{"name": "sendTerminalCommand", "args": {"command": "time set day"}}]"
+
+MÉTODO 2 (Pesquisa Rápida na Web e Memória):
+Você também pode usar diretamente as seguintes tags para acessar a internet ou a memória:
+- Internet: <call:PESQUISAR>termo_de_busca</call>
+- Memória local: <call:CONSULTAR>termo_de_busca</call>
+Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
       `;
 
       let text = "";
@@ -1023,6 +1036,20 @@ Exemplo: "Vou deixar de dia! [ACTION:{"name": "sendTerminalCommand", "args": {"c
 
       // Tenta extrair ações do texto de forma resiliente
       let call = null;
+      
+      // Look for the user's Local AI tags <call:PESQUISAR>query</call>
+      const pesquisarMatch = text.match(/<call:PESQUISAR>(.*?)<\/call>/i);
+      if (pesquisarMatch) {
+         call = { name: "searchInternet", args: { query: pesquisarMatch[1].trim() } };
+         text = text.replace(pesquisarMatch[0], "").trim();
+      } else {
+         const consultarMatch = text.match(/<call:CONSULTAR>(.*?)<\/call>/i);
+         if (consultarMatch) {
+            call = { name: "readMemory", args: { query: consultarMatch[1].trim() } };
+            text = text.replace(consultarMatch[0], "").trim();
+         }
+      }
+
       let actionStart = text.indexOf("[ACTION:");
       
       if (actionStart !== -1) {

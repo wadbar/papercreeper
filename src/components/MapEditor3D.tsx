@@ -78,6 +78,17 @@ function BlockGroup({ blocks, colorStr, hex, onSelect, onHover }: { blocks: any[
   );
 }
 
+function CameraRepositioner({ coords }: { coords: { x: number, y: number, z: number } }) {
+  const { camera } = useThree();
+  useEffect(() => {
+    camera.position.set(coords.x + 10, coords.y + 15, coords.z + 20);
+    camera.lookAt(coords.x, coords.y, coords.z);
+    camera.updateProjectionMatrix();
+  }, [coords.x, Math.floor(coords.y / 16), coords.z, camera]);
+  // only update on major jumps to prevent destroying FlyControls! I'll just use coordinates rounded to chunk size so it only repositions when loading a chunk elsewhere!
+  return null;
+}
+
 export default function MapEditor3D({ serverId }: { serverId?: string }) {
   const [history, setHistory] = useState<{ past: {pos: [number, number, number], color: string}[][], present: {pos: [number, number, number], color: string}[], future: {pos: [number, number, number], color: string}[][] }>({
     past: [], present: [], future: []
@@ -188,7 +199,7 @@ export default function MapEditor3D({ serverId }: { serverId?: string }) {
      const newBlocks = clipboard.map(b => ({ pos: [b.pos[0] + pos1[0], b.pos[1] + pos1[1], b.pos[2] + pos1[2]] as [number, number, number], color: b.color }));
      const merged = [...blocks];
      newBlocks.forEach(nb => {
-        const idx = merged.findIndex(mb => mb.pos[0] === nb.pos[0] && mb.pos[1] === mb.pos[1] && mb.pos[2] === mb.pos[2]);
+        const idx = merged.findIndex(mb => mb.pos[0] === nb.pos[0] && mb.pos[1] === nb.pos[1] && mb.pos[2] === nb.pos[2]);
         if (idx >= 0) merged[idx] = nb; else merged.push(nb);
      });
      updateBlocks(merged);
@@ -230,7 +241,7 @@ export default function MapEditor3D({ serverId }: { serverId?: string }) {
       if (data.error) { return; } // Silently fail on first load if world not ready
       if (data.blocks) {
          const mapped = data.blocks.map((b: any) => ({
-            pos: [b.pos[0] + cx, b.pos[1] + cy, b.pos[2] + cz], 
+            pos: [b.pos[0], b.pos[1], b.pos[2]], 
             color: b.stateId === 2 ? 'grass' : b.stateId === 3 ? 'dirt' : 'stone'
          }));
          updateBlocks(mapped);
@@ -246,14 +257,14 @@ export default function MapEditor3D({ serverId }: { serverId?: string }) {
     if (!serverId) { alert("Selecione um servidor primeiro."); return; }
     setLoading(true);
     const normalizedBlocks = blocks.map(b => ({
-       pos: [b.pos[0] - coords.x, b.pos[1] - coords.y, b.pos[2] - coords.z],
+       pos: b.pos,
        color: b.color
     }));
 
     try {
       const res = await fetch("/api/world/save", { 
          method: "POST", headers: {"Content-Type": "application/json"},
-         body: JSON.stringify({ serverId, worldName, x: coords.x, y: coords.y, z: coords.z, blocks: normalizedBlocks }) 
+         body: JSON.stringify({ serverId, worldName, blocks: normalizedBlocks }) 
       });
       const data = await res.json();
       if (data.success) alert("Mapa salvo com sucesso!");
@@ -342,6 +353,7 @@ export default function MapEditor3D({ serverId }: { serverId?: string }) {
         {/* 3D Viewport */}
         <div className="flex-1 relative bg-[#1a1a1a]">
           <Canvas camera={{ position: [coords.x + 10, coords.y + 15, coords.z + 20], fov: 60 }} gl={{ antialias: true }}>
+             <CameraRepositioner coords={coords} />
              <ambientLight intensity={0.6} />
              <directionalLight position={[100, 200, 50]} intensity={1.5} castShadow />
              <Sky sunPosition={[100, 20, 100]} turbidity={0.1} rayleigh={0.5} />

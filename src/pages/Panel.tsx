@@ -1743,19 +1743,42 @@ export default function App({
     }
   };
 
-  const handleAskAI = async (e?: React.FormEvent) => {
+  const handleAskAI = async (e?: React.FormEvent, overrideMsg?: string) => {
     e?.preventDefault();
-    if (!aiInput.trim() || aiLoading) return;
+    const finalMsg = overrideMsg !== undefined ? overrideMsg : aiInput;
+    if (!finalMsg.trim() || aiLoading) return;
 
-    const userMsg = aiInput;
-    setAiInput("");
-    setAiChat((prev) => [...prev, { role: "user", text: userMsg }]);
+    let displayMsg = finalMsg;
+    const searchMatch = finalMsg.match(/<call:PESQUISAR>(.*?)<\/call>/i);
+    const consultMatch = finalMsg.match(/<call:CONSULTAR>(.*?)<\/call>/i);
+    
+    if (searchMatch) displayMsg = `🔎 Pesquise na web sobre: ${searchMatch[1]}`;
+    if (consultMatch) displayMsg = `📚 Consulte na memória: ${consultMatch[1]}`;
+
+    if (overrideMsg === undefined) setAiInput("");
+    else setAiInput(""); // always clear
+    setAiChat((prev) => [...prev, { role: "user", text: displayMsg }]);
     setAiLoading(true);
 
     try {
       const keysArray = aiKeysList.split(",").map(k => k.trim()).filter(k => k.length > 5);
       const context = `Servidor Selecionado: ${currentServerId}. Status: ${serverState.status}. Logs recentes:\n${serverState.logs.slice(-10).join("\n")}`;
-      const firstResult = await askAI(userMsg, context, currentServerId, aiProvider, aiEndpoint, aiChat.slice(-10), aiLocalModel, keysArray, modules);
+      
+      let firstResult: any = null;
+
+      if (searchMatch) {
+        firstResult = {
+          text: `Executando pesquisa automática por: ${searchMatch[1]}...`,
+          call: { name: "searchInternet", args: { query: searchMatch[1].trim() } }
+        };
+      } else if (consultMatch) {
+         firstResult = {
+          text: `Consultando memória por: ${consultMatch[1]}...`,
+          call: { name: "readMemory", args: { query: consultMatch[1].trim() } }
+        };
+      } else {
+         firstResult = await askAI(finalMsg, context, currentServerId, aiProvider, aiEndpoint, aiChat.slice(-10), aiLocalModel, keysArray, modules);
+      }
 
       if (firstResult.call) {
         setAiChat((prev) => [
@@ -4411,22 +4434,42 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                     )}
                   </div>
 
-                  <form onSubmit={handleAskAI} className="relative">
-                    <input
-                      className="w-full bg-black/60 border border-emerald-900/50 rounded-2xl px-6 py-5 text-emerald-50 font-medium outline-none focus:border-emerald-500 transition-all shadow-inner pr-16 disabled:opacity-50 disabled:cursor-not-allowed"
-                      placeholder={aiProvider === "off" ? "Assistente desativado." : "Pergunte qualquer coisa sobre seu servidor..."}
-                      value={aiInput}
-                      onChange={(e) => setAiInput(e.target.value)}
-                      disabled={aiProvider === "off" || aiLoading}
-                    />
-                    <button
-                      type="submit"
-                      disabled={!aiInput.trim() || aiLoading || aiProvider === "off"}
-                      className="absolute right-3 top-3 w-8 h-8 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg border-b-4 border-emerald-800 transition-all flex items-center justify-center disabled:opacity-50 disabled:grayscale"
-                    >
-                      <Send size={24} />
-                    </button>
-                  </form>
+                  <div className="relative">
+                    <div className="absolute right-0 -top-8 flex gap-2">
+                       <button
+                         type="button"
+                         onClick={() => handleAskAI(undefined, `<call:PESQUISAR>${aiInput}</call>`)}
+                         disabled={!aiInput.trim() || aiLoading || aiProvider === "off"}
+                         className="px-3 py-1 bg-blue-900/40 hover:bg-blue-800 text-blue-400 font-bold text-[9px] uppercase tracking-widest rounded-lg border border-blue-900/50 transition-colors disabled:opacity-50 disabled:grayscale"
+                       >
+                         🔎 Pesquisar Web
+                       </button>
+                       <button
+                         type="button"
+                         onClick={() => handleAskAI(undefined, `<call:CONSULTAR>${aiInput}</call>`)}
+                         disabled={!aiInput.trim() || aiLoading || aiProvider === "off"}
+                         className="px-3 py-1 bg-purple-900/40 hover:bg-purple-800 text-purple-400 font-bold text-[9px] uppercase tracking-widest rounded-lg border border-purple-900/50 transition-colors disabled:opacity-50 disabled:grayscale"
+                       >
+                         📚 Consultar Docs
+                       </button>
+                    </div>
+                    <form onSubmit={(e) => handleAskAI(e)} className="relative">
+                      <input
+                        className="w-full bg-black/60 border border-emerald-900/50 rounded-2xl px-6 py-5 text-emerald-50 font-medium outline-none focus:border-emerald-500 transition-all shadow-inner pr-16 disabled:opacity-50 disabled:cursor-not-allowed"
+                        placeholder={aiProvider === "off" ? "Assistente desativado." : "Pergunte qualquer coisa sobre seu servidor..."}
+                        value={aiInput}
+                        onChange={(e) => setAiInput(e.target.value)}
+                        disabled={aiProvider === "off" || aiLoading}
+                      />
+                      <button
+                        type="submit"
+                        disabled={!aiInput.trim() || aiLoading || aiProvider === "off"}
+                        className="absolute right-3 top-3 w-8 h-8 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg border-b-4 border-emerald-800 transition-all flex items-center justify-center disabled:opacity-50 disabled:grayscale"
+                      >
+                        <Send size={24} />
+                      </button>
+                    </form>
+                  </div>
                 </motion.div>
               )}
 
