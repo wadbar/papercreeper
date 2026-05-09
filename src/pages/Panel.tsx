@@ -370,14 +370,8 @@ interface ServerState {
 }
 
 const CreeperPaper = ({ className = "", isPig = false }: { className?: string, isPig?: boolean }) => (
-  <motion.div
-    animate={{
-      y: [0, -10, 0],
-      rotate: [0, 2, -2, 0],
-      scale: [1, 1.02, 1],
-    }}
-    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-    className={`absolute pointer-events-none select-none opacity-30 -z-10 ${className}`}
+  <div
+    className={`absolute pointer-events-none select-none opacity-30 -z-10 hover:animate-[float-slow_2s_ease-in-out] ${className}`}
   >
     {isPig ? (
       <div className="w-10 h-10 bg-pink-400 rounded-sm relative shadow-[4px_4px_0_0_#9d174d]">
@@ -407,7 +401,7 @@ const CreeperPaper = ({ className = "", isPig = false }: { className?: string, i
         <div className="absolute inset-0 border-t border-l border-emerald-400/30" />
       </div>
     )}
-  </motion.div>
+  </div>
 );
 
 export default function App({
@@ -617,8 +611,10 @@ export default function App({
 
   useEffect(() => {
     if (isPaperPig) {
+      document.title = "Paper Pig ✨";
       document.body.classList.add("paper-pig");
     } else {
+      document.title = "Paper Creeper 🌿";
       document.body.classList.remove("paper-pig");
     }
   }, [isPaperPig]);
@@ -3062,7 +3058,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
         </AnimatePresence>
 
         {/* Decorations Section */}
-        <div className="fixed top-20 right-10 text-emerald-900/10 -z-10 animate-bounce cursor-default">
+        <div className="fixed top-20 right-10 text-emerald-900/10 -z-10 cursor-default opacity-50 hover:opacity-100 transition-opacity">
           <Sparkles size={120} />
         </div>
 
@@ -3074,27 +3070,43 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
         {/* Header Section */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10 relative">
           <div className="flex items-center gap-4">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              className="w-24 h-24 bg-emerald-950 rounded-3xl border border-emerald-500/30 flex items-center justify-center relative shadow-sm transition-all"
+            <div
+              className={`w-24 h-24 rounded-3xl border border-white/5 flex items-center justify-center relative shadow-sm transition-all hover:scale-105 ${isPaperPig ? "bg-pink-950" : "bg-emerald-950"}`}
             >
               <div className="w-16 h-12 flex flex-col gap-2">
-                <div className="flex justify-between px-1">
-                  <div className="w-4 h-4 bg-black rounded-sm" />
-                  <div className="w-4 h-4 bg-black rounded-sm" />
-                </div>
-                <div
-                  className="w-7 h-7 bg-black mx-auto"
-                  style={{
-                    clipPath:
-                      "polygon(0% 0%, 100% 0%, 100% 100%, 70% 100%, 70% 50%, 30% 50%, 30% 100%, 0% 100%)",
-                  }}
-                />
+                {isPaperPig ? (
+                  <>
+                     <div className="flex justify-between px-2 w-[40px] mx-auto">
+                        {/* Pig Eyes */}
+                       <div className="w-3 h-3 bg-black rounded-sm relative"><div className="absolute top-0 left-0 w-1 h-1 bg-white" /></div>
+                       <div className="w-3 h-3 bg-black rounded-sm relative"><div className="absolute top-0 right-0 w-1 h-1 bg-white" /></div>
+                     </div>
+                     <div className="w-8 h-5 bg-pink-400 mx-auto rounded-sm flex items-center justify-between px-1.5 shadow-sm border border-pink-500/50">
+                        {/* Pig Snout holes */}
+                        <div className="w-1 h-1.5 bg-black/60 rounded-[1px]" />
+                        <div className="w-1 h-1.5 bg-black/60 rounded-[1px]" />
+                     </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between px-1">
+                      <div className="w-4 h-4 bg-black rounded-sm" />
+                      <div className="w-4 h-4 bg-black rounded-sm" />
+                    </div>
+                    <div
+                      className="w-7 h-7 bg-black mx-auto"
+                      style={{
+                        clipPath:
+                          "polygon(0% 0%, 100% 0%, 100% 100%, 70% 100%, 70% 50%, 30% 50%, 30% 100%, 0% 100%)",
+                      }}
+                    />
+                  </>
+                )}
               </div>
-              <div className="absolute -top-3 -right-3 w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center shadow-lg border-2 border-emerald-400 text-white">
+              <div className={`absolute -top-3 -right-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg border-2 text-white ${isPaperPig ? "bg-pink-600 border-pink-400" : "bg-emerald-600 border-emerald-400"}`}>
                 <Check size={20} />
               </div>
-            </motion.div>
+            </div>
 
             <div>
               <h1 className="text-5xl font-black tracking-tighter flex items-center gap-2 italic">
@@ -3980,7 +3992,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="bg-black/40 backdrop-blur-md backdrop-blur-md rounded-3xl border border-emerald-900/50 shadow-sm p-4 lg:p-6 min-h-[600px] lg:min-h-0 h-full flex flex-col relative overflow-hidden"
+                  className="bg-black/40 backdrop-blur-md rounded-3xl border border-emerald-900/50 shadow-sm p-4 lg:p-6 min-h-[600px] lg:min-h-0 h-full flex flex-col relative overflow-hidden"
                 >
                   <div className="flex items-center gap-4 mb-4">
                     <div className="p-4 bg-emerald-900/50 rounded-2xl border border-emerald-500/30 text-emerald-400">
@@ -4067,41 +4079,41 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
 
                   <div className="flex flex-col gap-6 z-10 w-full max-w-2xl mx-auto h-full overflow-y-auto pr-2 custom-scrollbar">
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <section className="space-y-3 flex flex-col bg-black/10 p-5 rounded-2xl border border-white/5 shadow-inner">
-                        <h4 className="text-xs font-black text-emerald-600/80 uppercase tracking-widest flex items-center gap-2">
-                          <Languages size={14} /> {t("select_lang")}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <section className="space-y-3 flex flex-col bg-black/10 p-4 rounded-2xl border border-white/5 shadow-inner">
+                        <h4 className="text-[10px] font-black text-emerald-600/80 uppercase tracking-widest flex items-center gap-2">
+                          <Languages size={12} /> {t("select_lang")}
                         </h4>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           <button
                             onClick={() => setLanguage("en")}
-                            className={`flex-1 rounded-xl font-bold text-xs py-2 transition-all border-b-2 active:scale-95 ${language === "en" ? "bg-emerald-600 border-emerald-800 text-white shadow-md shadow-emerald-900/20" : "bg-black/20 border-black/40 text-emerald-900/50 hover:bg-black/30"}`}
+                            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all border-b-2 active:scale-95 ${language === "en" ? "bg-emerald-600 border-emerald-800 text-white shadow-md shadow-emerald-900/20" : "bg-black/20 border-black/40 text-emerald-700/50 hover:bg-black/30"}`}
                           >
                             EN
                           </button>
                           <button
                             onClick={() => setLanguage("pt")}
-                            className={`flex-1 rounded-xl font-bold text-xs py-2 transition-all border-b-2 active:scale-95 ${language === "pt" ? "bg-emerald-600 border-emerald-800 text-white shadow-md shadow-emerald-900/20" : "bg-black/20 border-black/40 text-emerald-900/50 hover:bg-black/30"}`}
+                            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all border-b-2 active:scale-95 ${language === "pt" ? "bg-emerald-600 border-emerald-800 text-white shadow-md shadow-emerald-900/20" : "bg-black/20 border-black/40 text-emerald-700/50 hover:bg-black/30"}`}
                           >
                             PT-BR
                           </button>
                         </div>
                       </section>
 
-                      <section className="space-y-3 flex flex-col bg-black/10 p-5 rounded-2xl border border-white/5 shadow-inner">
-                        <h4 className="text-xs font-black text-emerald-600/80 uppercase tracking-widest flex items-center gap-2">
-                          <Palette size={14} /> {t("select_theme")}
+                      <section className="space-y-3 flex flex-col bg-black/10 p-4 rounded-2xl border border-white/5 shadow-inner">
+                        <h4 className="text-[10px] font-black text-emerald-600/80 uppercase tracking-widest flex items-center gap-2">
+                          <Palette size={12} /> {t("select_theme")}
                         </h4>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           <button
                             onClick={() => setTheme("dark")}
-                            className={`flex-1 rounded-xl font-bold text-xs py-2 transition-all border-b-2 active:scale-95 flex items-center justify-center gap-2 ${theme === "dark" ? "bg-emerald-600 border-emerald-800 text-white shadow-md shadow-emerald-900/20" : "bg-black/20 border-black/40 text-emerald-900/50 hover:bg-black/30"}`}
+                            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all border-b-2 active:scale-95 flex items-center justify-center gap-2 ${theme === "dark" ? "bg-emerald-600 border-emerald-800 text-white shadow-md shadow-emerald-900/20" : "bg-black/20 border-black/40 text-emerald-700/50 hover:bg-black/30"}`}
                           >
                             <Moon size={12} /> Escuro
                           </button>
                           <button
                             onClick={() => setTheme("light")}
-                            className={`flex-1 rounded-xl font-bold text-xs py-2 transition-all border-b-2 active:scale-95 flex items-center justify-center gap-2 ${theme === "light" ? "bg-emerald-600 border-emerald-800 text-white shadow-md shadow-emerald-900/20" : "bg-black/20 border-black/40 text-emerald-900/50 hover:bg-black/30"}`}
+                            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all border-b-2 active:scale-95 flex items-center justify-center gap-2 ${theme === "light" ? "bg-emerald-600 border-emerald-800 text-white shadow-md shadow-emerald-900/20" : "bg-black/20 border-black/40 text-emerald-700/50 hover:bg-black/30"}`}
                           >
                             <Sun size={12} /> Claro
                           </button>
@@ -4110,55 +4122,55 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                     </div>
 
                     {/* Modules Toggles */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <section className="space-y-3 bg-black/10 p-5 rounded-2xl border border-white/5 shadow-inner">
-                        <h4 className="text-xs font-black text-emerald-600/80 uppercase tracking-widest flex items-center gap-2">
-                          <Power size={14} /> Módulos Cloud
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <section className="space-y-3 bg-black/10 p-4 rounded-2xl border border-white/5 shadow-inner">
+                        <h4 className="text-[10px] font-black text-emerald-600/80 uppercase tracking-widest flex items-center gap-2">
+                          <Power size={12} /> Módulos Cloud
                         </h4>
-                        <div className="flex flex-col gap-2">
-                          <button onClick={() => setModules((m) => ({ ...m, ai: !m.ai }))} className={`px-4 py-3 rounded-xl flex items-center gap-3 font-bold text-xs transition-all border-b-2 active:scale-[0.98] ${modules.ai ? "bg-emerald-600 border-emerald-800 text-white" : "bg-black/20 border-black/40 text-zinc-500 hover:bg-black/30 text-left"}`}>
-                            <div className="p-1.5 bg-black/20 rounded-lg"><Bot size={14} /></div> Assistente IA
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => setModules((m) => ({ ...m, ai: !m.ai }))} className={`px-3 py-2 rounded-xl flex items-center gap-2 font-bold text-[10px] uppercase transition-all border-b-2 active:scale-[0.98] ${modules.ai ? "bg-emerald-600 border-emerald-800 text-white" : "bg-black/20 border-black/40 text-zinc-500 hover:bg-black/30"}`}>
+                            <Bot size={12} /> Assistente IA
                           </button>
-                          <button onClick={() => setModules((m) => ({ ...m, map: !m.map }))} className={`px-4 py-3 rounded-xl flex items-center gap-3 font-bold text-xs transition-all border-b-2 active:scale-[0.98] ${modules.map ? "bg-emerald-600 border-emerald-800 text-white" : "bg-black/20 border-black/40 text-zinc-500 hover:bg-black/30 text-left"}`}>
-                            <div className="p-1.5 bg-black/20 rounded-lg"><Map size={14} /></div> Editor de Mapa
+                          <button onClick={() => setModules((m) => ({ ...m, map: !m.map }))} className={`px-3 py-2 rounded-xl flex items-center gap-2 font-bold text-[10px] uppercase transition-all border-b-2 active:scale-[0.98] ${modules.map ? "bg-emerald-600 border-emerald-800 text-white" : "bg-black/20 border-black/40 text-zinc-500 hover:bg-black/30"}`}>
+                            <Map size={12} /> Editor de Mapa
                           </button>
-                          <button onClick={() => setModules((m) => ({ ...m, store: !m.store }))} className={`px-4 py-3 rounded-xl flex items-center gap-3 font-bold text-xs transition-all border-b-2 active:scale-[0.98] ${modules.store ? "bg-emerald-600 border-emerald-800 text-white" : "bg-black/20 border-black/40 text-zinc-500 hover:bg-black/30 text-left"}`}>
-                            <div className="p-1.5 bg-black/20 rounded-lg"><Store size={14} /></div> Loja In-Game
+                          <button onClick={() => setModules((m) => ({ ...m, store: !m.store }))} className={`px-3 py-2 rounded-xl flex items-center gap-2 font-bold text-[10px] uppercase transition-all border-b-2 active:scale-[0.98] ${modules.store ? "bg-emerald-600 border-emerald-800 text-white" : "bg-black/20 border-black/40 text-zinc-500 hover:bg-black/30"}`}>
+                            <Store size={12} /> Loja In-Game
                           </button>
-                          <button onClick={() => { setModules((m) => ({ ...m, server_hibernation: !m.server_hibernation })); if (!modules.server_hibernation) setShowHibernationModal(true); }} className={`px-4 py-3 rounded-xl flex items-center gap-3 font-bold text-xs transition-all border-b-2 active:scale-[0.98] ${modules.server_hibernation ? "bg-amber-600 border-amber-800 text-white" : "bg-black/20 border-black/40 text-zinc-500 hover:bg-black/30 text-left"}`}>
-                            <div className="p-1.5 bg-black/20 rounded-lg"><Moon size={14} /></div> Hibernação
+                          <button onClick={() => { setModules((m) => ({ ...m, server_hibernation: !m.server_hibernation })); if (!modules.server_hibernation) setShowHibernationModal(true); }} className={`px-3 py-2 rounded-xl flex items-center gap-2 font-bold text-[10px] uppercase transition-all border-b-2 active:scale-[0.98] ${modules.server_hibernation ? "bg-amber-600 border-amber-800 text-white" : "bg-black/20 border-black/40 text-amber-600/50 hover:bg-black/30"}`}>
+                            <Moon size={12} /> Hibernação
                           </button>
                         </div>
                       </section>
 
-                      <section className="space-y-3 bg-black/10 p-5 rounded-2xl border border-white/5 shadow-inner">
-                        <h4 className="text-xs font-black text-blue-500/80 uppercase tracking-widest flex items-center gap-2">
-                          <Globe size={14} /> Habilidades da IA
+                      <section className="space-y-3 bg-black/10 p-4 rounded-2xl border border-white/5 shadow-inner">
+                        <h4 className="text-[10px] font-black text-blue-500/80 uppercase tracking-widest flex items-center gap-2">
+                          <Globe size={12} /> Habilidades da IA
                         </h4>
-                        <div className="flex flex-col gap-2">
-                           <button onClick={() => setModules((m) => ({ ...m, ai_internet: !m.ai_internet }))} className={`px-4 py-3 rounded-xl flex items-center gap-3 font-bold text-xs transition-all border-b-2 active:scale-[0.98] ${modules.ai_internet ? "bg-blue-600 border-blue-800 text-white" : "bg-black/20 border-black/40 text-zinc-500 hover:bg-black/30"}`}>
-                            <div className="p-1.5 bg-black/20 rounded-lg"><Globe size={14} /></div> Busca na Internet
+                        <div className="flex flex-wrap gap-2">
+                           <button onClick={() => setModules((m) => ({ ...m, ai_internet: !m.ai_internet }))} className={`px-3 py-2 rounded-xl flex items-center gap-2 font-bold text-[10px] uppercase transition-all border-b-2 active:scale-[0.98] ${modules.ai_internet ? "bg-blue-600 border-blue-800 text-white" : "bg-black/20 border-black/40 text-blue-500/50 hover:bg-black/30"}`}>
+                            <Globe size={12} /> Busca na Internet
                           </button>
-                          <button onClick={() => setModules((m) => ({ ...m, ai_memory: !m.ai_memory }))} className={`px-4 py-3 rounded-xl flex items-center gap-3 font-bold text-xs transition-all border-b-2 active:scale-[0.98] ${modules.ai_memory ? "bg-blue-600 border-blue-800 text-white" : "bg-black/20 border-black/40 text-zinc-500 hover:bg-black/30"}`}>
-                            <div className="p-1.5 bg-black/20 rounded-lg"><Save size={14} /></div> Memória RAG
+                          <button onClick={() => setModules((m) => ({ ...m, ai_memory: !m.ai_memory }))} className={`px-3 py-2 rounded-xl flex items-center gap-2 font-bold text-[10px] uppercase transition-all border-b-2 active:scale-[0.98] ${modules.ai_memory ? "bg-blue-600 border-blue-800 text-white" : "bg-black/20 border-black/40 text-blue-500/50 hover:bg-black/30"}`}>
+                            <Save size={12} /> Memória RAG
                           </button>
-                           <button onClick={() => setModules((m) => ({ ...m, ai_bot: !m.ai_bot }))} className={`px-4 py-3 rounded-xl flex items-center gap-3 font-bold text-xs transition-all border-b-2 active:scale-[0.98] ${modules.ai_bot ? "bg-blue-600 border-blue-800 text-white" : "bg-black/20 border-black/40 text-zinc-500 hover:bg-black/30"}`}>
-                            <div className="p-1.5 bg-black/20 rounded-lg"><Bot size={14} /></div> In-Game Bot
+                           <button onClick={() => setModules((m) => ({ ...m, ai_bot: !m.ai_bot }))} className={`px-3 py-2 rounded-xl flex items-center gap-2 font-bold text-[10px] uppercase transition-all border-b-2 active:scale-[0.98] ${modules.ai_bot ? "bg-blue-600 border-blue-800 text-white" : "bg-black/20 border-black/40 text-blue-500/50 hover:bg-black/30"}`}>
+                            <Bot size={12} /> In-Game Bot
                           </button>
                         </div>
                       </section>
                     </div>
 
-                    <section className="p-5 bg-black/10 rounded-2xl border border-blue-500/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-inner">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center text-blue-500 border border-blue-900/30 shadow-inner">
-                          <RefreshCw size={20} className={isSystemUpdating ? "animate-spin" : ""} />
+                    <section className="p-4 bg-black/10 rounded-2xl border border-blue-500/10 flex items-center justify-between gap-4 shadow-inner">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-zinc-900 rounded-xl flex items-center justify-center text-blue-500 border border-blue-900/30 shadow-inner">
+                          <RefreshCw size={16} className={isSystemUpdating ? "animate-spin" : ""} />
                         </div>
                         <div>
-                          <h5 className="font-black text-blue-700 text-sm uppercase tracking-tighter">
+                          <h5 className="font-black text-blue-700 text-xs uppercase tracking-tighter">
                             {t("system_update_title")}
                           </h5>
-                          <p className="text-xs font-bold text-blue-900/60 uppercase tracking-widest leading-none mt-1">
+                          <p className="text-[9px] font-bold text-blue-900/60 uppercase tracking-widest leading-none mt-0.5">
                             Versão: {appVersion}
                           </p>
                         </div>
@@ -4180,33 +4192,33 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                           }
                         }}
                         disabled={isSystemUpdating}
-                        className="w-full md:w-auto font-bold text-xs uppercase text-white px-6 py-3 rounded-xl border-b-4 bg-blue-500 border-blue-700 hover:bg-blue-400 transition-all active:scale-95 shadow-lg shadow-blue-900/20"
+                        className="font-bold text-[10px] uppercase text-white px-4 py-2 rounded-xl border-b-2 bg-blue-500 border-blue-700 hover:bg-blue-400 transition-all active:scale-95 shadow-md shadow-blue-900/20"
                       >
                         {isSystemUpdating ? "Aguarde..." : "Atualizar Sistema"}
                       </button>
                     </section>
 
                     {appConfig && setAppConfig && (
-                      <section className="p-5 bg-black/10 rounded-2xl border border-fuchsia-500/10 flex flex-col gap-4 shadow-inner">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center text-fuchsia-500 border border-fuchsia-900/30 shadow-inner">
-                              <Store size={20} />
+                      <section className="p-4 bg-black/10 rounded-2xl border border-fuchsia-500/10 flex flex-col gap-3 shadow-inner">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-zinc-900 rounded-xl flex items-center justify-center text-fuchsia-500 border border-fuchsia-900/30 shadow-inner">
+                              <Store size={16} />
                             </div>
                             <div>
-                              <h5 className="font-black text-white text-sm uppercase tracking-tighter">
+                              <h5 className="font-black text-white text-xs uppercase tracking-tighter">
                                 Portal Web Público
                               </h5>
-                              <p className="text-xs font-bold text-fuchsia-400 uppercase tracking-widest leading-none mt-1">
+                              <p className="text-[9px] font-bold text-fuchsia-400 uppercase tracking-widest leading-none mt-0.5">
                                 Loja & Painel
                               </p>
                             </div>
                           </div>
                           
-                          <div className="flex items-center gap-3">
-                            <div className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase flex items-center gap-2 border ${appConfig.storeEnabled !== false ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border-rose-500/20"}`}>
+                          <div className="flex items-center gap-2">
+                            <div className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase flex items-center gap-1 border ${appConfig.storeEnabled !== false ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border-rose-500/20"}`}>
                               <div
-                                className={`w-2 h-2 rounded-full ${appConfig.storeEnabled !== false ? "bg-emerald-400 animate-[pulse_2s_ease-in-out_infinite]" : "bg-rose-400"}`}
+                                className={`w-1.5 h-1.5 rounded-full ${appConfig.storeEnabled !== false ? "bg-emerald-400 animate-[pulse_2s_ease-in-out_infinite]" : "bg-rose-400"}`}
                               />
                               {appConfig.storeEnabled !== false
                                 ? "Online"
@@ -4220,32 +4232,32 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                                     appConfig.storeEnabled === false,
                                 })
                               }
-                              className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer items-center justify-start rounded-full transition-all duration-300 focus:outline-none shadow-inner border-2 ${appConfig.storeEnabled !== false ? "bg-fuchsia-600 border-fuchsia-400" : "bg-zinc-800 border-zinc-700"}`}
+                              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-start rounded-full transition-all duration-300 focus:outline-none shadow-inner border-2 ${appConfig.storeEnabled !== false ? "bg-fuchsia-600 border-fuchsia-400" : "bg-zinc-800 border-zinc-700"}`}
                             >
                               <span
-                                className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${appConfig.storeEnabled !== false ? "translate-x-6" : "translate-x-1"}`}
+                                className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${appConfig.storeEnabled !== false ? "translate-x-4" : "translate-x-0.5"}`}
                               />
                             </button>
                           </div>
                         </div>
 
                         {appConfig.storeEnabled !== false && (
-                          <div className="px-5 py-4 bg-black/20 rounded-xl border border-fuchsia-900/30 space-y-4">
+                          <div className="p-3 bg-black/20 rounded-xl border border-fuchsia-900/30 space-y-3">
                             <div className="flex items-center justify-between">
-                              <p className="text-xs font-black uppercase text-fuchsia-400 tracking-widest flex items-center gap-2">
-                                <Settings size={12} /> Configurações do Portal
+                              <p className="text-[10px] font-black uppercase text-fuchsia-400 tracking-widest flex items-center gap-1.5">
+                                <Settings size={10} /> Configurações do Portal
                               </p>
                               <button
                                 onClick={() => window.open("/site", "_blank")}
-                                className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all flex items-center gap-2 active:scale-95 shadow-md"
+                                className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all flex items-center gap-1.5 active:scale-95 shadow-sm"
                               >
-                                <ExternalLink size={12} /> Visitar Site
+                                <ExternalLink size={10} /> Visitar Site
                               </button>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-2">
                               <div>
-                                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5 pl-1">
+                                <label className="block text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1 pl-1">
                                   Público Alvo / Estilo
                                 </label>
                                 <select
@@ -4258,7 +4270,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                                       familyMode: e.target.value === "family",
                                     })
                                   }
-                                  className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-xs uppercase text-white font-black outline-none focus:border-fuchsia-500 shadow-inner"
+                                  className="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-[10px] uppercase text-white font-black outline-none focus:border-fuchsia-500 shadow-inner"
                                 >
                                   <option value="family">
                                     Família (Aventura)
@@ -4272,18 +4284,18 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                           </div>
                         )}
 
-                        <div className="p-4 bg-zinc-950/50 rounded-xl border border-white/5 flex items-start gap-4 shadow-inner mt-2">
-                          <div className="flex-shrink-0 bg-zinc-900 p-2 rounded-xl text-zinc-500 border border-zinc-800 shadow-sm">
-                            <Info size={16} />
+                        <div className="p-3 bg-zinc-950/50 rounded-xl border border-white/5 flex items-start gap-3 shadow-inner">
+                          <div className="flex-shrink-0 bg-zinc-900 p-1.5 rounded-lg text-zinc-500 border border-zinc-800 shadow-sm mt-0.5">
+                            <Info size={12} />
                           </div>
                           <div className="space-y-1">
-                            <div className="text-xs font-black text-zinc-400 uppercase tracking-widest leading-tight">
+                            <div className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-tight">
                               Estimativa de Performance
                             </div>
-                            <p className="text-[10px] text-zinc-500 font-bold uppercase leading-relaxed tracking-wider">
+                            <p className="text-[9px] text-zinc-500 font-bold uppercase leading-relaxed tracking-wider">
                               {appConfig.storeEnabled !== false
-                                ? "Site Ativo: ~35-50MB RAM consumida. CPU oscila apenas durante acessos concorrentes."
-                                : "Site Offline: Modo de economia total. <2MB RAM (Apenas arquivos estáticos mínimos)."}
+                                ? "Site Ativo: ~35-50MB RAM consumida. CPU oscila apenas durante acessos."
+                                : "Site Offline: Modo de economia total. <2MB RAM."}
                             </p>
                           </div>
                         </div>

@@ -50,6 +50,12 @@ body.paper-pig {
   --color-emerald-950: var(--color-pink-950);
 }
 
+@keyframes float-slow {
+  0% { transform: translateY(0) rotate(0deg) scale(1); }
+  50% { transform: translateY(-10px) rotate(2deg) scale(1.02); }
+  100% { transform: translateY(0) rotate(0deg) scale(1); }
+}
+
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
   background: #94a3b8;
 }

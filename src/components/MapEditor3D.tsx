@@ -342,7 +342,7 @@ export default function MapEditor3D({ serverId, initialWorldName }: { serverId?:
 
         {/* 3D Viewport */}
         <div className="flex-1 relative bg-[#1a1a1a]">
-          <Canvas camera={{ position: [coords.x + 10, coords.y + 15, coords.z + 20], fov: 60 }} gl={{ antialias: true }}>
+          <Canvas frameloop="demand" camera={{ position: [coords.x + 10, coords.y + 15, coords.z + 20], fov: 60 }} gl={{ antialias: true }}>
              <CameraRepositioner coords={coords} />
              <ambientLight intensity={0.6} />
              <directionalLight position={[100, 200, 50]} intensity={1.5} castShadow />
