@@ -1922,7 +1922,9 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
     if (!command.trim() || !currentServerId) return;
 
     // Immediate local feedback
-    const cmd = command;
+    let cmd = command.trim();
+    if (cmd.startsWith("/")) cmd = cmd.substring(1);
+    
     setCommand("");
     setServerState((prev) => ({
       ...prev,
@@ -1961,12 +1963,27 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
     }
   };
 
+  const formatLogLine = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    if (!text.match(urlRegex)) return text;
+    const parts = text.split(/(https?:\/\/[^\s]+)/g);
+    return parts.map((part, i) => 
+      part.match(urlRegex) ? (
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline hover:text-blue-300">
+          {part}
+        </a>
+      ) : (
+        part
+      )
+    );
+  };
+
   return (
     <div
-      className={`min-h-screen font-sans selection:bg-emerald-500 selection:text-white transition-all duration-500 ${theme === "dark" ? "bg-[#071E14] text-emerald-50" : "bg-zinc-50 text-emerald-950"} ${isHibernating ? "grayscale-[0.8] brightness-50" : ""}`}
+      className={`min-h-screen font-sans selection:bg-emerald-500 selection:text-white transition-all duration-500 ${isPaperPig ? (theme === "dark" ? "bg-[#1E1114] text-pink-50" : "bg-[#fdf2f8] text-pink-950") : (theme === "dark" ? "bg-[#071E14] text-emerald-50" : "bg-zinc-50 text-emerald-950")} ${isHibernating ? "grayscale-[0.8] brightness-50" : ""}`}
     >
       <div
-        className={`fixed inset-0 creeper-pattern pointer-events-none ${theme === "light" ? "opacity-[0.02]" : "opacity-05"}`}
+        className={`fixed inset-0 creeper-pattern pointer-events-none ${isPaperPig ? "hidden" : ""} ${theme === "light" ? "opacity-[0.02]" : "opacity-05"}`}
       />
       <div className="w-full max-w-[1920px] mx-auto min-h-screen flex flex-col p-6 lg:p-6 relative">
         <AnimatePresence>
@@ -3062,10 +3079,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
           <Sparkles size={120} />
         </div>
 
-        {/* Creepers de Papel Enfeite */}
-        <CreeperPaper isPig={isPaperPig} className="top-40 left-10 rotate-[-15deg] blur-[1px]" />
-        <CreeperPaper isPig={isPaperPig} className="bottom-40 left-20 rotate-[15deg] scale-75 blur-[2px]" />
-        <CreeperPaper isPig={isPaperPig} className="top-1/4 right-2 rotate-[45deg] scale-50 opacity-10" />
+        {/* Creepers de Papel Enfeite removidos */}
 
         {/* Header Section */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10 relative">
@@ -4304,7 +4318,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                   </div>
 
                   <div className="mt-8 flex justify-center pb-4">
-                    <CreeperPaper isPig={isPaperPig} className="relative opacity-20 scale-150 rotate-0 bottom-0 left-0" />
+                    {/* CreeperPaper removido */}
                   </div>
                 </motion.div>
               )}
@@ -4651,7 +4665,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                                         : "text-emerald-500/80"
                               }`}
                             >
-                              {log}
+                              {formatLogLine(log)}
                             </p>
                           </div>
                         ))}
@@ -4688,7 +4702,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                                 {state.logs.map((log, i) => (
                                   <div key={i} className="flex gap-2 group hover:bg-emerald-500/5">
                                     <p className={`leading-relaxed break-all ${log.includes("[ERROR]") ? "text-red-400 font-bold" : log.includes("[SUCCESS]") ? "text-emerald-400" : log.includes("[WARN]") ? "text-amber-500" : "text-emerald-500/60"}`}>
-                                      {log}
+                                      {formatLogLine(log)}
                                     </p>
                                   </div>
                                 ))}

@@ -1069,20 +1069,18 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
          }
       }
 
-      let actionStart = text.indexOf("[ACTION:");
+      const actionRegex = /\[ACTION:\s*({[\s\S]+?})\s*]/i;
+      const actionMatch = text.match(actionRegex);
       
-      if (actionStart !== -1) {
-        let actionEnd = text.lastIndexOf("]");
-        if (actionEnd > actionStart) {
-           let jsonStr = text.substring(actionStart + 8, actionEnd).trim();
-           // Remove possíveis wrappers de markdown gerados pela IA
-           jsonStr = jsonStr.replace(/```json/gi, "").replace(/```/g, "").trim();
-           try {
-             call = JSON.parse(jsonStr);
-             text = text.substring(0, actionStart).trim();
-           } catch(e) {
-             console.log("Failed to parse action json", jsonStr);
-           }
+      if (actionMatch) {
+        let jsonStr = actionMatch[1].trim();
+        // Remove possíveis wrappers de markdown gerados pela IA
+        jsonStr = jsonStr.replace(/```json/gi, "").replace(/```/g, "").trim();
+        try {
+          call = JSON.parse(jsonStr);
+          text = text.replace(actionMatch[0], "").trim();
+        } catch(e) {
+          console.log("Failed to parse action json", jsonStr);
         }
       }
 
@@ -1667,6 +1665,7 @@ command /creeper-ai <text>:
       }
 
       args.push("-Dfile.encoding=UTF-8");
+      args.push("-Djline.terminal=jline.UnsupportedTerminal");
 
       if (fs.existsSync(runShPath)) {
         addLog(serverId, `[INFO] Usando script run.sh em vez de JAR direto...`);
@@ -1941,9 +1940,10 @@ command /creeper-ai <text>:
     const srv = serversState[serverId];
     if (srv && srv.process) {
       try {
-        srv.process.stdin.write(`${command}\n`);
-        addLog(serverId, `> ${command}`);
-        console.log(`[CONSOLE][${serverId}] Executed: ${command}`);
+        let cmd = command.trim();
+        if (cmd.startsWith("/")) cmd = cmd.substring(1);
+        srv.process.stdin.write(`${cmd}\n`);
+        console.log(`[CONSOLE][${serverId}] Executed: ${cmd}`);
         res.json({ message: "Ok" });
       } catch (err: any) {
         addLog(serverId, `[ERROR] Falha ao enviar comando: ${err.message}`);
