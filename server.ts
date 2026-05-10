@@ -965,6 +965,34 @@ async function startServer() {
     }
   });
 
+  app.post("/api/ai/models", async (req, res) => {
+    try {
+      const { endpoint, apiKey } = req.body;
+      if (!endpoint) return res.status(400).json({ error: "Endpoint não fornecido." });
+      
+      const url = new URL(endpoint);
+      let modelsUrl = endpoint.replace("/chat/completions", "/models");
+      if (modelsUrl === endpoint) {
+          modelsUrl = url.origin + "/v1/models"; 
+      }
+      
+      const headers: any = {};
+      if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+      
+      const response = await fetch(modelsUrl, { method: "GET", headers });
+      
+      if (!response.ok) {
+        return res.status(response.status).json({ error: `Erro na API: ${response.statusText}` });
+      }
+      
+      const data = await response.json();
+      res.json(data);
+    } catch (e: any) {
+      console.error("[AI Models API]", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.post("/api/ai", async (req, res) => {
     try {
       const { prompt, context, serverId, provider, endpoint, history, modelName, apiKeys, options } = req.body;
@@ -1053,10 +1081,16 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
           fetchHeaders["Authorization"] = `Bearer ${keysToTry[0]}`;
         }
 
+        const fetchPayload: any = { model: modelName || "llama3", messages, temperature: 0.7 };
+        
+        if (targetEndpoint.includes("nvidia.com") && typeof modelName === "string" && modelName.includes("deepseek")) {
+          fetchPayload.chat_template_kwargs = { thinking: false };
+        }
+
         const oaiRes = await fetch(targetEndpoint, {
           method: "POST",
           headers: fetchHeaders,
-          body: JSON.stringify({ model: modelName || "llama3", messages, temperature: 0.7 }),
+          body: JSON.stringify(fetchPayload),
           signal: controller.signal
         });
         clearTimeout(timeoutId);
@@ -1108,18 +1142,18 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
       } else {
         // External OpenAI-compatible (Groq, xAI, OpenAI)
         let targetEndpoint = "https://api.openai.com/v1/chat/completions";
-        let model = "gpt-4o-mini";
+        let model = modelName || "gpt-4o-mini";
         const currentKey = keysToTry.length > 0 ? keysToTry[0] : "";
 
         if (currentKey.startsWith("gsk_")) {
           targetEndpoint = "https://api.groq.com/openai/v1/chat/completions";
-          model = "llama-3.3-70b-versatile"; 
+          model = modelName || "llama-3.3-70b-versatile"; 
         } else if (currentKey.startsWith("xai-")) {
           targetEndpoint = "https://api.x.ai/v1/chat/completions";
-          model = "grok-2-latest";
+          model = modelName || "grok-2-latest";
         } else if (currentKey.startsWith("nvapi-")) {
           targetEndpoint = "https://integrate.api.nvidia.com/v1/chat/completions";
-          model = "deepseek-ai/deepseek-v4-pro"; // Default Nvidia model
+          model = modelName || "deepseek-ai/deepseek-v4-pro"; // Default Nvidia model
         }
 
         const messages = [{ role: "system", content: systemInstruction }];
@@ -1134,17 +1168,19 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 60000);
 
+        const fetchPayload: any = { model, messages, temperature: 0.8 };
+        
+        if (targetEndpoint.includes("nvidia.com") && typeof model === "string" && model.includes("deepseek")) {
+          fetchPayload.chat_template_kwargs = { thinking: false };
+        }
+
         const oaiRes = await fetch(targetEndpoint, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${currentKey}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            model,
-            messages,
-            temperature: 0.8,
-          }),
+          body: JSON.stringify(fetchPayload),
           signal: controller.signal
         });
         clearTimeout(timeoutId);

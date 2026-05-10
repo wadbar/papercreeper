@@ -535,6 +535,42 @@ export default function App({
   
   const [showAiCustomConfigModal, setShowAiCustomConfigModal] = useState(false);
   
+  const [fetchingModelsFor, setFetchingModelsFor] = useState<string | null>(null);
+  const [fetchedModels, setFetchedModels] = useState<{[id: string]: string[]}>({});
+
+  const handleFetchModels = async (aiIndex: number) => {
+    const ai = customAIs[aiIndex];
+    if (!ai.endpoint) return;
+    try {
+      setFetchingModelsFor(ai.id);
+      
+      const res = await fetch("/api/ai/models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: ai.endpoint, apiKey: ai.apiKey })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.data && Array.isArray(data.data)) {
+           const modelIds = data.data.map((m: any) => m.id);
+           setFetchedModels(prev => ({...prev, [ai.id]: modelIds}));
+        } else if (data && Array.isArray(data)) {
+           const modelIds = data.map((m: any) => m.id || m.name);
+           setFetchedModels(prev => ({...prev, [ai.id]: modelIds}));
+        } else {
+           alert("Não foi possível processar a lista de models (formato não reconhecido).");
+        }
+      } else {
+        const err = await res.json();
+        alert(`Erro na API ao buscar models: ${err.error}`);
+      }
+    } catch(e: any) {
+      alert("Erro ao buscar models: " + e.message);
+    } finally {
+      setFetchingModelsFor(null);
+    }
+  };
+
   useEffect(() => {
     localStorage.setItem("creeper_custom_ais", JSON.stringify(customAIs));
   }, [customAIs]);
@@ -2135,16 +2171,42 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                           />
                         </div>
                         <div className="flex-1">
-                          <label className="text-[10px] text-emerald-500 font-bold uppercase tracking-wide">Model ID</label>
-                          <input 
-                            value={ai.model} 
-                            onChange={(e) => {
-                               const newAis = [...customAIs];
-                               newAis[index].model = e.target.value;
-                               setCustomAIs(newAis);
-                            }}
-                            className="w-full bg-black/60 border border-emerald-900/50 rounded-lg px-3 py-2 text-emerald-100 text-sm outline-none focus:border-emerald-500" 
-                          />
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[10px] text-emerald-500 font-bold uppercase tracking-wide">Model ID</label>
+                            <button 
+                                onClick={() => handleFetchModels(index)}
+                                disabled={fetchingModelsFor === ai.id}
+                                className="text-[9px] text-emerald-400 hover:text-emerald-300 font-black uppercase disabled:opacity-50"
+                            >
+                              {fetchingModelsFor === ai.id ? "Buscando..." : "Buscar Modelos"}
+                            </button>
+                          </div>
+                          {fetchedModels[ai.id] && fetchedModels[ai.id].length > 0 ? (
+                            <select 
+                              value={ai.model} 
+                              onChange={(e) => {
+                                 const newAis = [...customAIs];
+                                 newAis[index].model = e.target.value;
+                                 setCustomAIs(newAis);
+                              }}
+                              className="w-full bg-black/60 border border-emerald-900/50 rounded-lg px-3 py-2 text-emerald-100 text-sm outline-none focus:border-emerald-500" 
+                            >
+                              {fetchedModels[ai.id].map(mId => (
+                                 <option key={mId} value={mId}>{mId}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input 
+                              value={ai.model} 
+                              onChange={(e) => {
+                                 const newAis = [...customAIs];
+                                 newAis[index].model = e.target.value;
+                                 setCustomAIs(newAis);
+                              }}
+                              className="w-full bg-black/60 border border-emerald-900/50 rounded-lg px-3 py-2 text-emerald-100 text-sm outline-none focus:border-emerald-500" 
+                              placeholder="Nome do modelo. Clique em Buscar para listar."
+                            />
+                          )}
                         </div>
                       </div>
                       <div className="flex flex-col gap-3">
