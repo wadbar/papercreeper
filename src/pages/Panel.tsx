@@ -2186,7 +2186,11 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                               value={ai.model} 
                               onChange={(e) => {
                                  const newAis = [...customAIs];
-                                 newAis[index].model = e.target.value;
+                                 const selectedModel = e.target.value;
+                                 newAis[index].model = selectedModel;
+                                 if (!newAis[index].name || newAis[index].name.includes("Novo Modelo")) {
+                                    newAis[index].name = selectedModel;
+                                 }
                                  setCustomAIs(newAis);
                               }}
                               className="w-full bg-black/60 border border-emerald-900/50 rounded-lg px-3 py-2 text-emerald-100 text-sm outline-none focus:border-emerald-500" 
@@ -4589,96 +4593,23 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                   </div>
 
                   <div className="flex flex-col gap-2 mb-3 shrink-0">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 bg-black/20 p-2 rounded-xl border border-emerald-900/50">
-                      <div className="flex flex-wrap gap-1 bg-emerald-950/50 p-1 rounded-lg w-full sm:w-auto">
-                        <button
-                          onClick={() => { 
-                            setAiProvider("remote"); 
-                            setAiChat([]); 
-                            fetch("/api/ai/local", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "stop" }) }).catch(() => {});
-                          }}
-                          className={`px-2 py-1.5 sm:px-4 sm:py-2 rounded-md text-[9px] sm:text-[10px] lg:text-xs font-bold uppercase transition-all flex-1 sm:flex-none text-center ${aiProvider === "remote" ? "bg-emerald-600 text-white shadow-md" : "text-emerald-500 hover:text-emerald-400"}`}
-                        >
-                          {t("ai_btn_remote")}
-                        </button>
-                        <button
-                          onClick={() => { 
-                            setAiProvider("local"); 
-                            setAiChat([]); 
-                            fetch("/api/ai/local", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start" }) }).catch(() => {});
-                          }}
-                          className={`px-2 py-1.5 sm:px-4 sm:py-2 rounded-md text-[9px] sm:text-[10px] lg:text-xs font-bold uppercase transition-all flex-1 sm:flex-none text-center ${aiProvider === "local" ? "bg-emerald-600 text-white shadow-md" : "text-emerald-500 hover:text-emerald-400"}`}
-                        >
-                          {t("ai_btn_local")}
-                        </button>
-                        <button
-                          onClick={() => { 
-                            setAiProvider("off"); 
-                            setAiChat([]); 
-                            fetch("/api/ai/local", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "stop" }) }).catch(() => {});
-                          }}
-                          className={`px-2 py-1.5 sm:px-4 sm:py-2 rounded-md text-[9px] sm:text-[10px] lg:text-xs font-bold uppercase transition-all flex-1 sm:flex-none text-center ${aiProvider === "off" ? "bg-zinc-600 text-white shadow-md" : "text-zinc-500 hover:text-zinc-400"}`}
-                        >
-                          {t("off_btn")}
-                        </button>
-                      </div>
-
-                      {aiProvider === "remote" ? (
-                        <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
-                          {!showApiKeyInput ? (
-                            <button
-                              onClick={() => setShowApiKeyInput(true)}
-                              className="font-black text-[9px] uppercase bg-emerald-900/60 text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-800 hover:bg-emerald-800 transition-all flex-1 sm:flex-none"
-                            >
-                              {t("ai_api_key_btn")} (Gemini / OpenAI / Groq)
-                            </button>
-                          ) : (
-                            <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
-                              <input
-                                type="password"
-                                placeholder="Key1, Key2, Key3..."
-                                value={aiKeysList}
-                                onChange={(e) => {
-                                   setAiKeysList(e.target.value);
-                                   localStorage.setItem("creeper_ai_keys_list", e.target.value);
-                                }}
-                                className="bg-black/60 border border-emerald-900 rounded-xl px-4 py-2 outline-none focus:border-emerald-500 text-xs text-emerald-100 flex-1 min-w-[200px]"
-                                title="Múltiplas chaves separadas por vírgula para fallback"
-                              />
-                              <button
-                                onClick={async () => {
-                                  const firstKey = aiKeysList.split(",")[0]?.trim();
-                                  if (firstKey && firstKey.length > 5) {
-                                    await fetch("/api/config/env", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ key: firstKey }),
-                                    });
-                                  }
-                                  alert("Chaves salvas e configuradas para o auto-fallback!");
-                                  setShowApiKeyInput(false);
-                                }}
-                                className="font-black text-[9px] uppercase bg-emerald-600 text-white px-3 py-2 rounded-xl hover:bg-emerald-500 transition-all"
-                              >
-                                {t("save")}
-                              </button>
-                              <button
-                                onClick={() => setShowApiKeyInput(false)}
-                                className="p-2 text-zinc-500 hover:text-emerald-500 transition-colors"
-                              >
-                                <X size={16} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ) : aiProvider === "local" ? (
-                        <div className="flex flex-col sm:flex-row flex-wrap items-center gap-2 flex-1 w-full mt-2 lg:mt-0">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-black/20 p-2 rounded-xl border border-emerald-900/50">
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <div className="relative flex-1 sm:flex-none">
                           <select
-                            className="bg-black/60 border border-emerald-900 rounded-xl px-4 py-2 text-xs text-emerald-100 outline-none focus:border-emerald-500 max-w-[150px] appearance-none cursor-pointer"
+                            value={aiProvider === "off" ? "off" : (aiProvider === "remote" ? "gemini" : (customAIs.find(a => a.endpoint === aiEndpoint && a.model === aiLocalModel)?.id || customAIs[0]?.id || "local"))}
                             onChange={(e) => {
-                              const selectedId = e.target.value;
-                              if (selectedId) {
-                                const selectedAi = customAIs.find(ai => ai.id === selectedId);
+                              const val = e.target.value;
+                              if (val === "off") {
+                                setAiProvider("off");
+                                setAiChat([]);
+                              } else if (val === "gemini") {
+                                setAiProvider("remote");
+                                setAiChat([]);
+                              } else {
+                                setAiProvider("local");
+                                setAiChat([]);
+                                const selectedAi = customAIs.find(ai => ai.id === val);
                                 if (selectedAi) {
                                   setAiEndpoint(selectedAi.endpoint);
                                   setAiLocalModel(selectedAi.model);
@@ -4689,71 +4620,47 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                                 }
                               }
                             }}
+                            className="w-full bg-emerald-950/40 border border-emerald-900 rounded-xl px-4 py-2.5 text-xs font-bold text-emerald-300 outline-none focus:border-emerald-500 max-w-[280px] appearance-none cursor-pointer pr-10 uppercase tracking-wider shadow-inner"
                           >
-                            <option value="">-- Predefinições --</option>
-                            {customAIs.map((ai, idx) => (
-                              <option key={idx} value={ai.id}>{ai.name}</option>
-                            ))}
+                            <option value="off">🔴 IA Desativada</option>
+                            <option value="gemini">🟢 Gemini Integrado (Cloud)</option>
+                            {customAIs.map(ai => <option key={ai.id} value={ai.id}>⚡ {ai.name}</option>)}
                           </select>
-                          <input
-                            type="text"
-                            value={aiEndpoint}
-                            onChange={(e) => setAiEndpoint(e.target.value)}
-                            placeholder="http://127.0.0.1:11434/v1/chat/completions"
-                            className="bg-black/60 border border-emerald-900 rounded-xl px-4 py-2 text-xs text-emerald-100 outline-none focus:border-emerald-500 w-full sm:flex-1"
-                            title="Endpoint de API Compatível com OpenAI"
-                          />
-                          <input
-                            type="text"
-                            list="ai-models-list"
-                            value={aiLocalModel}
-                            onChange={(e) => setAiLocalModel(e.target.value)}
-                            placeholder="Modelo (ex: llama3, gpt-4o)"
-                            className="bg-black/60 border border-emerald-900 rounded-xl px-4 py-2 text-xs text-emerald-100 outline-none focus:border-emerald-500 w-full sm:w-auto"
-                            title="Nome do Modelo"
-                          />
-                          <datalist id="ai-models-list">
-                            <option value="llama3" />
-                            <option value="gpt-4o" />
-                            <option value="gpt-4o-mini" />
-                            <option value="deepseek-ai/deepseek-v4-pro" />
-                            <option value="deepseek-ai/deepseek-r1" />
-                            <option value="meta/llama-3.3-70b-instruct" />
-                            <option value="meta/llama3-70b-instruct" />
-                            <option value="nvidia/nemotron-4-340b-instruct" />
-                          </datalist>
-                          <input
-                            type="password"
-                            placeholder="API Key (Para APIs Externas)"
-                            value={aiKeysList}
-                            onChange={(e) => {
-                               setAiKeysList(e.target.value);
-                               localStorage.setItem("creeper_ai_keys_list", e.target.value);
-                            }}
-                            className="bg-black/60 border border-emerald-900 rounded-xl px-4 py-2 text-xs text-emerald-100 outline-none focus:border-emerald-500 flex-1 w-full sm:max-w-48"
-                            title="Chave de API em modo compatibilidade"
-                          />
-                          <button
-                            onClick={() => setShowAiCustomConfigModal(true)}
-                            className="px-3 py-2 bg-emerald-900/40 hover:bg-emerald-800 text-emerald-400 rounded-xl text-xs font-bold transition-all flex items-center justify-center shrink-0 border border-emerald-800"
-                            title="Gerenciar Models Salvos"
-                          >
-                            <Settings size={14} />
-                          </button>
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-600 font-bold">▼</div>
                         </div>
-                      ) : (
-                        <div className="flex items-center gap-2 flex-1 w-full sm:w-auto px-4 text-[9px] text-zinc-400 font-bold uppercase tracking-widest">
-                          {t("ai_disabled_placeholder")}
+                        
+                        <button
+                          onClick={() => setShowAiCustomConfigModal(true)}
+                          className="px-4 py-2.5 bg-emerald-900/40 hover:bg-emerald-800 text-emerald-400 rounded-xl text-xs font-bold transition-all flex items-center justify-center border border-emerald-800 uppercase tracking-widest shrink-0"
+                          title="Gerenciar APIs e Modelos"
+                        >
+                          <Settings size={14} className="mr-1.5" />
+                          <span className="hidden sm:inline">Configurar Modelos</span>
+                          <span className="sm:hidden">APIs</span>
+                        </button>
+                      </div>
+                      
+                      <div className="flex items-center w-full sm:w-auto gap-3">
+                        <div className="hidden md:flex items-center">
+                          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest px-2">STATUS:</span>
+                          {aiProvider === "off" ? (
+                            <span className="text-zinc-500 font-bold text-[10px] uppercase bg-black/40 px-2 py-1 rounded-md border border-zinc-800">Desativada</span>
+                          ) : (
+                            <span className="text-emerald-500 font-bold text-[10px] uppercase bg-emerald-950/30 px-2 py-1 rounded-md border border-emerald-900/50 flex items-center gap-1.5 shadow-sm">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Online
+                            </span>
+                          )}
                         </div>
-                      )}
-
-                      <button
-                        onClick={() => setAiChat([])}
-                        className="px-4 py-2 bg-red-900/50 hover:bg-red-800 text-red-400 rounded-xl text-xs font-bold uppercase transition-all flex items-center justify-center gap-2 ml-auto w-full sm:w-auto mt-2 sm:mt-0"
-                        title="Apagar Memória do Chat"
-                      >
-                        <RefreshCw size={14} /> Memória
-                      </button>
+                        
+                        <button
+                          onClick={() => setAiChat([])}
+                          className="px-4 py-2.5 bg-red-900/30 hover:bg-red-800 text-red-400 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ml-auto w-full sm:w-auto border border-red-900/50 hover:border-red-500/50"
+                          title="Apagar Memória do Chat"
+                        >
+                          <RefreshCw size={14} /> RESETAR CHAT
+                        </button>
+                      </div>
                     </div>
                   </div>
 

@@ -1017,18 +1017,9 @@ async function startServer() {
 
       const opts = options || { ai_internet: true, ai_memory: true, ai_bot: true };
 
-      let memoryData = "{}";
-      try {
-        if (opts.ai_memory) {
-           const memFile = path.join(process.cwd(), "data", "ai_memory.json");
-           if (fs.existsSync(memFile)) memoryData = fs.readFileSync(memFile, "utf-8");
-        }
-      } catch(e) {}
-
       // Instrução de sistema para manter a personalidade
       const systemInstruction = `
 Você é o "PaperCreeper AI", o OPERADOR SUPREMO e ENGENHEIRO de servidores Minecraft.
-${opts.ai_memory ? `Sua Memória Permanente (Autoaprendizado): ${memoryData}` : ''}
 Personalidade: Técnico, eficiente, prestativo e com um toque de humor "Minecrafter". Use emojis como ⛏️, 💎, 🔥, 🧨, 🛡️.
 
 SUAS CAPACIDADES (Nomes das ferramentas suportadas):
