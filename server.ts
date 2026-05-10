@@ -849,7 +849,12 @@ async function startServer() {
                         let color = 'stone';
                         if (b === 2 || b === 9 || b === 10) color = 'grass';
                         else if (b === 3 || b === 11 || b === 12) color = 'dirt';
-                        else if (b === 17 || b === 18) color = 'wood'; // Simplification
+                        else if (b === 8 || b === 9) color = 'water';
+                        else if (b === 12) color = 'sand';
+                        else if (b === 17) color = 'wood';
+                        else if (b === 18) color = 'leaves';
+                        else if (b === 20) color = 'glass';
+                        else color = 'stone';
                         
                         const absX = (chunkX * 16) + dx;
                         const absZ = (chunkZ * 16) + dz;
@@ -932,10 +937,17 @@ async function startServer() {
             const ly = b.by;
             const lz = (localZ < 0 ? localZ + 16 : localZ);
 
-            let stId = 1; // Stone
-            if (b.color === 'grass') stId = 2;
-            if (b.color === 'dirt') stId = 3;
-
+            let stId = 0; // Air
+            if (b.color === 'stone') stId = 1;
+            else if (b.color === 'grass') stId = 2; // Grass block
+            else if (b.color === 'dirt') stId = 3;
+            else if (b.color === 'wood') stId = 17; // Oak log
+            else if (b.color === 'leaves') stId = 18; // Oak leaves
+            else if (b.color === 'glass') stId = 20; // Glass
+            else if (b.color === 'water') stId = 9; // Water
+            else if (b.color === 'sand') stId = 12; // Sand
+            else stId = 1; // Default
+            
             chunk.setBlockStateId({ x: lx, y: ly, z: lz } as any, stId);
          }
          
@@ -971,6 +983,9 @@ async function startServer() {
       if (provider !== "local" && keysToTry.length === 0) {
         throw new Error("Nenhuma API Key configurada. Configure no menu de IA ou nas Configurações.");
       }
+
+      const currentKey = keysToTry.length > 0 ? keysToTry[0] : "";
+      const isGeminiKey = currentKey && !currentKey.startsWith("gsk_") && !currentKey.startsWith("xai-") && !currentKey.startsWith("sk-") && !currentKey.startsWith("nvapi-");
 
       const opts = options || { ai_internet: true, ai_memory: true, ai_bot: true };
 
@@ -1050,7 +1065,7 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
         const oaiData: any = await oaiRes.json();
         text = oaiData.choices?.[0]?.message?.content || "";
 
-      } else if (keysToTry.length > 0 && provider !== "openai") {
+      } else if (keysToTry.length > 0 && isGeminiKey) {
         // Assume all keys are Gemini keys
         const tryKey = async (key: string) => {
           const localAi = new GoogleGenAI({ apiKey: key });
@@ -1102,6 +1117,9 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
         } else if (currentKey.startsWith("xai-")) {
           targetEndpoint = "https://api.x.ai/v1/chat/completions";
           model = "grok-2-latest";
+        } else if (currentKey.startsWith("nvapi-")) {
+          targetEndpoint = "https://integrate.api.nvidia.com/v1/chat/completions";
+          model = "deepseek-ai/deepseek-v4-pro"; // Default Nvidia model
         }
 
         const messages = [{ role: "system", content: systemInstruction }];

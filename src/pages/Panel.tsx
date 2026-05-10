@@ -91,6 +91,15 @@ const translations: any = {
     panel_active: "Active Control Panel",
     ai_assistant_sub: "Creeper Intelligence",
     ask_ai_placeholder: "Ask anything about your server...",
+    ai_btn_search_web: "Search Web",
+    ai_btn_search_docs: "Consult Docs",
+    ai_disabled_placeholder: "Assistant disabled.",
+    ai_thinking: "CREEPER IS THINKING...",
+    ai_api_key_btn: "SET API KEYS",
+    save: "SAVE",
+    off_btn: "Turn Off",
+    ai_btn_remote: "Remote A.I (Cloud)",
+    ai_btn_local: "Custom A.I / Local",
     terminal_sub: "Connected to the Cube",
     files_title: "Files",
     files_sub: "Server Root",
@@ -246,6 +255,15 @@ const translations: any = {
     panel_active: "Painel de Controle Ativo",
     ai_assistant_sub: "Inteligência Creeper",
     ask_ai_placeholder: "Pergunte qualquer coisa sobre seu servidor...",
+    ai_btn_search_web: "Pesquisar Web",
+    ai_btn_search_docs: "Consultar Docs",
+    ai_disabled_placeholder: "Assistente desativado.",
+    ai_thinking: "CREEPER ESTÁ PENSANDO...",
+    ai_api_key_btn: "CONFIG API KEYS",
+    save: "SALVAR",
+    off_btn: "Desativar",
+    ai_btn_remote: "I.A Remota (Cloud)",
+    ai_btn_local: "I.A Local / Custom",
     terminal_sub: "Conectado ao Cubo",
     files_title: "Arquivos",
     files_sub: "Raiz do Servidor",
@@ -503,6 +521,24 @@ export default function App({
     () => localStorage.getItem("creeper_ai_local_model") || "llama3"
   );
   
+  const [customAIs, setCustomAIs] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem("creeper_custom_ais");
+      if (saved) return JSON.parse(saved);
+    } catch(e) {}
+    return [
+      { id: "nvidia_v4", name: "DeepSeek V4 Pro (Nvidia)", endpoint: "https://integrate.api.nvidia.com/v1/chat/completions", model: "deepseek-ai/deepseek-v4-pro", apiKey: "" },
+      { id: "groq_33", name: "LLaMA 3.3 (Groq)", endpoint: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile", apiKey: "" },
+      { id: "ollama", name: "Ollama Local", endpoint: "http://127.0.0.1:11434/v1/chat/completions", model: "llama3", apiKey: "" }
+    ];
+  });
+  
+  const [showAiCustomConfigModal, setShowAiCustomConfigModal] = useState(false);
+  
+  useEffect(() => {
+    localStorage.setItem("creeper_custom_ais", JSON.stringify(customAIs));
+  }, [customAIs]);
+
   const [pluginDescription, setPluginDescription] = useState("");
   const [isGeneratingPlugin, setIsGeneratingPlugin] = useState(false);
   const [pluginCode, setPluginCode] = useState("");
@@ -1983,12 +2019,13 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
   };
 
   const formatLogLine = (text: string) => {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    // Regex that stops at whitespace, ANSI escape (\x1B), quotes, or parenthesis
+    const urlRegex = /(https?:\/\/[^\s\x1B"'()]+)/g;
     if (!text.match(urlRegex)) return text;
-    const parts = text.split(/(https?:\/\/[^\s]+)/g);
+    const parts = text.split(/(https?:\/\/[^\s\x1B"'()]+)/g);
     return parts.map((part, i) => 
       part.match(urlRegex) ? (
-        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline hover:text-blue-300">
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline hover:text-blue-300 break-all">
           {part}
         </a>
       ) : (
@@ -2004,7 +2041,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
       <div
         className={`fixed inset-0 creeper-pattern pointer-events-none ${isPaperPig ? "hidden" : ""} ${theme === "light" ? "opacity-[0.02]" : "opacity-05"}`}
       />
-      <div className="w-full max-w-[1920px] mx-auto min-h-screen flex flex-col p-6 lg:p-6 relative">
+      <div className="w-full max-w-[1400px] mx-auto min-h-screen flex flex-col p-4 lg:p-6 relative">
         <AnimatePresence>
           {showHibernationModal && (
             <motion.div
@@ -2041,6 +2078,129 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                     className="w-full bg-amber-500 hover:bg-amber-400 text-amber-950 border-b-4 border-amber-700 font-black py-4 rounded-2xl transition-all shadow-lg active:scale-95 active:border-b-0 uppercase"
                   >
                     OK, ENTENDI
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {showAiCustomConfigModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-6"
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                className="bg-emerald-950/80 backdrop-blur-md rounded-3xl border-2 border-emerald-500 shadow-xl p-6 w-full max-w-2xl text-left space-y-6 max-h-[90vh] flex flex-col"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-900/50 rounded-full flex items-center justify-center text-emerald-400">
+                      <Settings size={20} />
+                    </div>
+                    <h3 className="text-xl font-black text-emerald-50 tracking-tighter uppercase">
+                      Modelos de IA Personalizados
+                    </h3>
+                  </div>
+                  <button onClick={() => setShowAiCustomConfigModal(false)} className="text-emerald-500 hover:text-emerald-300 transition"><X size={24} /></button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+                  {customAIs.map((ai, index) => (
+                    <div key={ai.id} className="bg-black/40 border border-emerald-900/50 p-4 rounded-xl space-y-3 relative group">
+                      <button 
+                        onClick={() => {
+                           const newAis = [...customAIs];
+                           newAis.splice(index, 1);
+                           setCustomAIs(newAis);
+                        }} 
+                        className="absolute top-2 right-2 p-2 bg-red-900/50 text-red-500 rounded-lg hover:bg-red-800 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                      <div className="flex flex-col md:flex-row gap-3">
+                        <div className="flex-1">
+                          <label className="text-[10px] text-emerald-500 font-bold uppercase tracking-wide">Nome (Visível no Menu)</label>
+                          <input 
+                            value={ai.name} 
+                            onChange={(e) => {
+                               const newAis = [...customAIs];
+                               newAis[index].name = e.target.value;
+                               setCustomAIs(newAis);
+                            }}
+                            className="w-full bg-black/60 border border-emerald-900/50 rounded-lg px-3 py-2 text-emerald-100 text-sm outline-none focus:border-emerald-500" 
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[10px] text-emerald-500 font-bold uppercase tracking-wide">Model ID</label>
+                          <input 
+                            value={ai.model} 
+                            onChange={(e) => {
+                               const newAis = [...customAIs];
+                               newAis[index].model = e.target.value;
+                               setCustomAIs(newAis);
+                            }}
+                            className="w-full bg-black/60 border border-emerald-900/50 rounded-lg px-3 py-2 text-emerald-100 text-sm outline-none focus:border-emerald-500" 
+                          />
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        <div>
+                          <label className="text-[10px] text-emerald-500 font-bold uppercase tracking-wide">Endpoint (OpenAI Compatible)</label>
+                          <input 
+                            value={ai.endpoint} 
+                            onChange={(e) => {
+                               const newAis = [...customAIs];
+                               newAis[index].endpoint = e.target.value;
+                               setCustomAIs(newAis);
+                            }}
+                            className="w-full bg-black/60 border border-emerald-900/50 rounded-lg px-3 py-2 text-emerald-100 text-sm outline-none focus:border-emerald-500" 
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-emerald-500 font-bold uppercase tracking-wide">API Key (Salva localmente neste navegador)</label>
+                          <input 
+                            type="password"
+                            value={ai.apiKey} 
+                            onChange={(e) => {
+                               const newAis = [...customAIs];
+                               newAis[index].apiKey = e.target.value;
+                               setCustomAIs(newAis);
+                            }}
+                            className="w-full bg-black/60 border border-emerald-900/50 rounded-lg px-3 py-2 text-emerald-100 text-sm outline-none focus:border-emerald-500" 
+                            placeholder="Deixe em branco se for Ollama/Local"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <button 
+                    onClick={() => {
+                        setCustomAIs([...customAIs, {
+                           id: `custom_${Date.now()}`,
+                           name: "Novo Modelo Personalizado",
+                           endpoint: "https://api.openai.com/v1/chat/completions",
+                           model: "gpt-4o-mini",
+                           apiKey: ""
+                        }]);
+                        // Scroll bottom implicitly handled if we use refs later, but good enough.
+                    }}
+                    className="w-full py-4 border-2 border-dashed border-emerald-900/50 rounded-xl text-emerald-500 font-bold hover:bg-emerald-900/20 transition hover:border-emerald-500/50"
+                  >
+                    + ADICIONAR NOVO MODELO
+                  </button>
+                </div>
+                
+                <div className="pt-4 border-t border-emerald-900 flex justify-end">
+                  <button
+                    onClick={() => setShowAiCustomConfigModal(false)}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 px-8 rounded-xl transition-all shadow-lg active:scale-95 uppercase text-sm"
+                  >
+                    CONCLUÍDO
                   </button>
                 </div>
               </motion.div>
@@ -4368,16 +4528,16 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
 
                   <div className="flex flex-col gap-2 mb-3 shrink-0">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 bg-black/20 p-2 rounded-xl border border-emerald-900/50">
-                      <div className="flex flex-wrap gap-1 bg-emerald-950/50 p-1 rounded-lg">
+                      <div className="flex flex-wrap gap-1 bg-emerald-950/50 p-1 rounded-lg w-full sm:w-auto">
                         <button
                           onClick={() => { 
                             setAiProvider("remote"); 
                             setAiChat([]); 
                             fetch("/api/ai/local", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "stop" }) }).catch(() => {});
                           }}
-                          className={`px-3 py-1.5 rounded-md text-[9px] font-bold uppercase transition-all ${aiProvider === "remote" ? "bg-emerald-600 text-white shadow-md" : "text-emerald-500 hover:text-emerald-400"}`}
+                          className={`px-2 py-1.5 sm:px-4 sm:py-2 rounded-md text-[9px] sm:text-[10px] lg:text-xs font-bold uppercase transition-all flex-1 sm:flex-none text-center ${aiProvider === "remote" ? "bg-emerald-600 text-white shadow-md" : "text-emerald-500 hover:text-emerald-400"}`}
                         >
-                          I.A Remota (Cloud)
+                          {t("ai_btn_remote")}
                         </button>
                         <button
                           onClick={() => { 
@@ -4385,9 +4545,9 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                             setAiChat([]); 
                             fetch("/api/ai/local", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start" }) }).catch(() => {});
                           }}
-                          className={`px-3 py-1.5 rounded-md text-[9px] font-bold uppercase transition-all ${aiProvider === "local" ? "bg-emerald-600 text-white shadow-md" : "text-emerald-500 hover:text-emerald-400"}`}
+                          className={`px-2 py-1.5 sm:px-4 sm:py-2 rounded-md text-[9px] sm:text-[10px] lg:text-xs font-bold uppercase transition-all flex-1 sm:flex-none text-center ${aiProvider === "local" ? "bg-emerald-600 text-white shadow-md" : "text-emerald-500 hover:text-emerald-400"}`}
                         >
-                          I.A Local (PC)
+                          {t("ai_btn_local")}
                         </button>
                         <button
                           onClick={() => { 
@@ -4395,9 +4555,9 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                             setAiChat([]); 
                             fetch("/api/ai/local", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "stop" }) }).catch(() => {});
                           }}
-                          className={`px-3 py-1.5 rounded-md text-[9px] font-bold uppercase transition-all ${aiProvider === "off" ? "bg-zinc-600 text-white shadow-md" : "text-zinc-500 hover:text-zinc-400"}`}
+                          className={`px-2 py-1.5 sm:px-4 sm:py-2 rounded-md text-[9px] sm:text-[10px] lg:text-xs font-bold uppercase transition-all flex-1 sm:flex-none text-center ${aiProvider === "off" ? "bg-zinc-600 text-white shadow-md" : "text-zinc-500 hover:text-zinc-400"}`}
                         >
-                          Desativar
+                          {t("off_btn")}
                         </button>
                       </div>
 
@@ -4408,7 +4568,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                               onClick={() => setShowApiKeyInput(true)}
                               className="font-black text-[9px] uppercase bg-emerald-900/60 text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-800 hover:bg-emerald-800 transition-all flex-1 sm:flex-none"
                             >
-                              {t("ai_api_key_btn")} (Gemini / OpenAI)
+                              {t("ai_api_key_btn")} (Gemini / OpenAI / Groq)
                             </button>
                           ) : (
                             <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
@@ -4425,8 +4585,6 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                               />
                               <button
                                 onClick={async () => {
-                                  // As chaves já estão salvas no localStorage no onChange
-                                  // Vamos também tentar salvar a primeira no backend por compatibilidade
                                   const firstKey = aiKeysList.split(",")[0]?.trim();
                                   if (firstKey && firstKey.length > 5) {
                                     await fetch("/api/config/env", {
@@ -4452,27 +4610,78 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                           )}
                         </div>
                       ) : aiProvider === "local" ? (
-                        <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
+                        <div className="flex flex-col sm:flex-row flex-wrap items-center gap-2 flex-1 w-full mt-2 lg:mt-0">
+                          <select
+                            className="bg-black/60 border border-emerald-900 rounded-xl px-4 py-2 text-xs text-emerald-100 outline-none focus:border-emerald-500 max-w-[150px] appearance-none cursor-pointer"
+                            onChange={(e) => {
+                              const selectedId = e.target.value;
+                              if (selectedId) {
+                                const selectedAi = customAIs.find(ai => ai.id === selectedId);
+                                if (selectedAi) {
+                                  setAiEndpoint(selectedAi.endpoint);
+                                  setAiLocalModel(selectedAi.model);
+                                  if (selectedAi.apiKey) {
+                                    setAiKeysList(selectedAi.apiKey);
+                                    localStorage.setItem("creeper_ai_keys_list", selectedAi.apiKey);
+                                  }
+                                }
+                              }
+                            }}
+                          >
+                            <option value="">-- Predefinições --</option>
+                            {customAIs.map((ai, idx) => (
+                              <option key={idx} value={ai.id}>{ai.name}</option>
+                            ))}
+                          </select>
                           <input
                             type="text"
                             value={aiEndpoint}
                             onChange={(e) => setAiEndpoint(e.target.value)}
                             placeholder="http://127.0.0.1:11434/v1/chat/completions"
-                            className="bg-black/60 border border-emerald-900 rounded-xl px-4 py-2 text-xs text-emerald-100 outline-none focus:border-emerald-500 flex-1 min-w-[200px] w-full sm:w-auto"
-                            title="Endpoint (Ex: Ollama ou LM Studio)"
+                            className="bg-black/60 border border-emerald-900 rounded-xl px-4 py-2 text-xs text-emerald-100 outline-none focus:border-emerald-500 w-full sm:flex-1"
+                            title="Endpoint de API Compatível com OpenAI"
                           />
                           <input
                             type="text"
+                            list="ai-models-list"
                             value={aiLocalModel}
                             onChange={(e) => setAiLocalModel(e.target.value)}
-                            placeholder="llama3"
-                            className="bg-black/60 border border-emerald-900 rounded-xl px-4 py-2 text-xs text-emerald-100 outline-none focus:border-emerald-500 w-24 sm:w-auto"
-                            title="Nome do Modelo (Ex: llama3, qwen2.5-coder)"
+                            placeholder="Modelo (ex: llama3, gpt-4o)"
+                            className="bg-black/60 border border-emerald-900 rounded-xl px-4 py-2 text-xs text-emerald-100 outline-none focus:border-emerald-500 w-full sm:w-auto"
+                            title="Nome do Modelo"
                           />
+                          <datalist id="ai-models-list">
+                            <option value="llama3" />
+                            <option value="gpt-4o" />
+                            <option value="gpt-4o-mini" />
+                            <option value="deepseek-ai/deepseek-v4-pro" />
+                            <option value="deepseek-ai/deepseek-r1" />
+                            <option value="meta/llama-3.3-70b-instruct" />
+                            <option value="meta/llama3-70b-instruct" />
+                            <option value="nvidia/nemotron-4-340b-instruct" />
+                          </datalist>
+                          <input
+                            type="password"
+                            placeholder="API Key (Para APIs Externas)"
+                            value={aiKeysList}
+                            onChange={(e) => {
+                               setAiKeysList(e.target.value);
+                               localStorage.setItem("creeper_ai_keys_list", e.target.value);
+                            }}
+                            className="bg-black/60 border border-emerald-900 rounded-xl px-4 py-2 text-xs text-emerald-100 outline-none focus:border-emerald-500 flex-1 w-full sm:max-w-48"
+                            title="Chave de API em modo compatibilidade"
+                          />
+                          <button
+                            onClick={() => setShowAiCustomConfigModal(true)}
+                            className="px-3 py-2 bg-emerald-900/40 hover:bg-emerald-800 text-emerald-400 rounded-xl text-xs font-bold transition-all flex items-center justify-center shrink-0 border border-emerald-800"
+                            title="Gerenciar Models Salvos"
+                          >
+                            <Settings size={14} />
+                          </button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 flex-1 w-full sm:w-auto px-4 text-[9px] text-zinc-400 font-bold uppercase tracking-widest">
-                          Assistente Desativado
+                          {t("ai_disabled_placeholder")}
                         </div>
                       )}
 
@@ -4520,7 +4729,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                     {aiLoading && (
                       <div className="flex justify-start">
                         <div className="bg-black/40 border border-emerald-900/50 text-emerald-500 p-4 rounded-2xl rounded-tl-none animate-pulse italic font-black text-xs uppercase tracking-widest">
-                          Creeper está pensando... ( ੭•͈ω•͈)੭
+                          {t("ai_thinking")} ( ੭•͈ω•͈)੭
                         </div>
                       </div>
                     )}
@@ -4534,7 +4743,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                          disabled={!aiInput.trim() || aiLoading || aiProvider === "off"}
                          className="px-3 py-1 bg-blue-900/40 hover:bg-blue-800 text-blue-400 font-bold text-[9px] uppercase tracking-widest rounded-lg border border-blue-900/50 transition-colors disabled:opacity-50 disabled:grayscale"
                        >
-                         🔎 Pesquisar Web
+                         🔎 {t("ai_btn_search_web")}
                        </button>
                        <button
                          type="button"
@@ -4542,13 +4751,13 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                          disabled={!aiInput.trim() || aiLoading || aiProvider === "off"}
                          className="px-3 py-1 bg-purple-900/40 hover:bg-purple-800 text-purple-400 font-bold text-[9px] uppercase tracking-widest rounded-lg border border-purple-900/50 transition-colors disabled:opacity-50 disabled:grayscale"
                        >
-                         📚 Consultar Docs
+                         📚 {t("ai_btn_search_docs")}
                        </button>
                     </div>
                     <form onSubmit={(e) => handleAskAI(e)} className="relative">
                       <input
                         className="w-full bg-black/60 border border-emerald-900/50 rounded-2xl px-6 py-5 text-emerald-50 font-medium outline-none focus:border-emerald-500 transition-all shadow-inner pr-16 disabled:opacity-50 disabled:cursor-not-allowed"
-                        placeholder={aiProvider === "off" ? "Assistente desativado." : "Pergunte qualquer coisa sobre seu servidor..."}
+                        placeholder={aiProvider === "off" ? t("ai_disabled_placeholder") : t("ask_ai_placeholder")}
                         value={aiInput}
                         onChange={(e) => setAiInput(e.target.value)}
                         disabled={aiProvider === "off" || aiLoading}

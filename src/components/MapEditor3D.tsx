@@ -184,7 +184,7 @@ export default function MapEditor3D({ serverId, initialWorldName }: { serverId?:
      } else if (activeTool === 'brush') {
          const newBlocks = [...blocks];
          const idx = newBlocks.findIndex(b => b.pos[0]===pos[0] && b.pos[1]===pos[1]+1 && b.pos[2]===pos[2]);
-         const mapName = (col: string) => col === 'wood' ? 'oak_log' : col === 'grass' ? 'grass_block' : col;
+         const mapName = (col: string) => col === 'wood' ? 'oak_log' : col === 'grass' ? 'grass_block' : col === 'leaves' ? 'oak_leaves' : col;
          if (idx >= 0) {
             newBlocks[idx].color = blockType;
             newBlocks[idx].name = mapName(blockType);
@@ -330,7 +330,7 @@ export default function MapEditor3D({ serverId, initialWorldName }: { serverId?:
       const minY = Math.min(pos1[1], pos2[1]); const maxY = Math.max(pos1[1], pos2[1]);
       const minZ = Math.min(pos1[2], pos2[2]); const maxZ = Math.max(pos1[2], pos2[2]);
       
-      const mapName = (col: string) => col === 'wood' ? 'oak_log' : col === 'grass' ? 'grass_block' : col;
+      const mapName = (col: string) => col === 'wood' ? 'oak_log' : col === 'grass' ? 'grass_block' : col === 'leaves' ? 'oak_leaves' : col;
       for (let x=minX; x<=maxX; x++) {
         for (let y=minY; y<=maxY; y++) {
           for (let z=minZ; z<=maxZ; z++) {
@@ -441,6 +441,11 @@ export default function MapEditor3D({ serverId, initialWorldName }: { serverId?:
              <BlockGroup blocks={blocks} colorStr="grass" hex="#55aa55" onSelect={handleSelect} onHover={setHoverPos} />
              <BlockGroup blocks={blocks} colorStr="dirt" hex="#855522" onSelect={handleSelect} onHover={setHoverPos} />
              <BlockGroup blocks={blocks} colorStr="stone" hex="#888888" onSelect={handleSelect} onHover={setHoverPos} />
+             <BlockGroup blocks={blocks} colorStr="wood" hex="#5c4033" onSelect={handleSelect} onHover={setHoverPos} />
+             <BlockGroup blocks={blocks} colorStr="leaves" hex="#228b22" onSelect={handleSelect} onHover={setHoverPos} />
+             <BlockGroup blocks={blocks} colorStr="glass" hex="#aaddff" onSelect={handleSelect} onHover={setHoverPos} />
+             <BlockGroup blocks={blocks} colorStr="water" hex="#3333ff" onSelect={handleSelect} onHover={setHoverPos} />
+             <BlockGroup blocks={blocks} colorStr="sand" hex="#c2b280" onSelect={handleSelect} onHover={setHoverPos} />
              
           </Canvas>
 
@@ -453,10 +458,15 @@ export default function MapEditor3D({ serverId, initialWorldName }: { serverId?:
              </div>
              
              <div className="font-bold mb-2 text-zinc-300 uppercase tracking-widest text-[10px]">Material (Brush/Fill)</div>
-             <select value={blockType} onChange={e=>setBlockType(e.target.value)} className="w-full bg-[#1e1e1e] border border-zinc-700 rounded p-1 mb-2 outline-none">
+             <select value={blockType} onChange={e=>setBlockType(e.target.value)} className="w-full bg-[#1e1e1e] border border-zinc-700 rounded p-1 mb-2 outline-none text-emerald-400">
                 <option value="stone">Stone</option>
-                <option value="grass">Grass</option>
+                <option value="grass">Grass Block</option>
                 <option value="dirt">Dirt</option>
+                <option value="wood">Oak Log</option>
+                <option value="leaves">Leaves</option>
+                <option value="glass">Glass</option>
+                <option value="water">Water</option>
+                <option value="sand">Sand</option>
              </select>
 
              <div className="mt-4 pt-2 border-t border-zinc-700 text-[10px] text-zinc-400">
