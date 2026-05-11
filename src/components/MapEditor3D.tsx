@@ -79,13 +79,16 @@ function BlockGroup({ blocks, colorStr, hex, onSelect, onHover }: { blocks: any[
 }
 
 function CameraRepositioner({ coords }: { coords: { x: number, y: number, z: number } }) {
-  const { camera } = useThree();
+  const { camera, controls } = useThree();
   useEffect(() => {
     camera.position.set(coords.x + 10, coords.y + 15, coords.z + 20);
-    camera.lookAt(coords.x, coords.y, coords.z);
-    camera.updateProjectionMatrix();
-  }, [coords.x, Math.floor(coords.y / 16), coords.z, camera]);
-  // only update on major jumps to prevent destroying FlyControls! I'll just use coordinates rounded to chunk size so it only repositions when loading a chunk elsewhere!
+    if (controls) {
+      (controls as any).target.set(coords.x, coords.y, coords.z);
+      (controls as any).update();
+    } else {
+      camera.lookAt(coords.x, coords.y, coords.z);
+    }
+  }, [coords.x, Math.floor(coords.y / 16), coords.z, camera, controls]);
   return null;
 }
 
@@ -421,7 +424,7 @@ export default function MapEditor3D({ serverId, initialWorldName }: { serverId?:
              <directionalLight position={[100, 200, 50]} intensity={1.5} castShadow />
              <Sky sunPosition={[100, 20, 100]} turbidity={0.1} rayleigh={0.5} />
              
-             <FlyControls movementSpeed={10} rollSpeed={Math.PI / 6} dragToLook={true} makeDefault />
+             <OrbitControls makeDefault enableDamping={false} maxPolarAngle={Math.PI / 2} />
              
              <gridHelper args={[100, 100, 0x444444, 0x222222]} position={[coords.x, coords.y - 1, coords.z]} />
              

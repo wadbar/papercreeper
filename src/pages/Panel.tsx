@@ -2220,7 +2220,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                                  const newAis = [...customAIs];
                                  const selectedModel = e.target.value;
                                  newAis[index].model = selectedModel;
-                                 if (!newAis[index].name || newAis[index].name.includes("Novo Modelo")) {
+                                 if (!newAis[index].name) {
                                     newAis[index].name = selectedModel;
                                  }
                                  setCustomAIs(newAis);
@@ -4646,8 +4646,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                                   setAiEndpoint(selectedAi.endpoint);
                                   setAiLocalModel(selectedAi.model);
                                   if (selectedAi.apiKey) {
-                                    setAiKeysList(selectedAi.apiKey);
-                                    localStorage.setItem("creeper_ai_keys_list", selectedAi.apiKey);
+                                    // Do not save this to local storage to avoid overwriting universal keys
                                   }
                                 }
                               }

@@ -817,11 +817,16 @@ async function startServer() {
       const chunkX = Math.floor(startX / 16);
       const chunkZ = Math.floor(startZ / 16);
 
+      let chunkData = null;
       try {
-        const chunkData = await worldProvider.load(chunkX, chunkZ);
-        if (chunkData) {
-           const PrisChunk = ChunkPkg.default ? ChunkPkg.default(registry) : ChunkPkg(registry);
-           const chunk: any = new PrisChunk(null);
+        chunkData = await worldProvider.load(chunkX, chunkZ);
+      } catch (err: any) {
+        console.warn(`Aviso de leitura de chunk NBT: ${err.message}. Assumindo chunk vazio.`);
+      }
+
+      if (chunkData) {
+         const PrisChunk = ChunkPkg.default ? ChunkPkg.default(registry) : ChunkPkg(registry);
+         const chunk: any = new PrisChunk(null);
            if (chunk.loadLight) chunk.loadLight(chunkData.light);
            if (chunk.load) chunk.load(chunkData.chunk, chunkData.bitmaps);
            
@@ -873,10 +878,12 @@ async function startServer() {
       } catch (e: any) {
         console.error("Chunk load error", e);
         if (e && e.code === 'ENOENT') {
-           return res.json({ error: `Nenhum bloco encontrado na coordenada (${startX}, ${startZ}). O Minecraft cria os arquivos apenas quando o jogador passa ou constrói na área.` });
+           if (typeof worldProvider.close === 'function') await worldProvider.close();
+           return res.json({ blocks: [], origin: [startX, startY, startZ], info: "Empty chunk created." });
         }
       }
 
+      if (typeof worldProvider.close === 'function') await worldProvider.close();
       res.json({ blocks, origin: [startX, startY, startZ] });
     } catch(e: any) {
       res.json({ error: e.message });
@@ -925,12 +932,16 @@ async function startServer() {
          const cx = parseInt(parts[0]);
          const cz = parseInt(parts[1]);
          
-         const chunkData = await worldProvider.load(cx, cz);
-         if (!chunkData) continue; // skip ungenerated
+         let chunkData;
+         try {
+            chunkData = await worldProvider.load(cx, cz);
+         } catch(e) {}
 
          const chunk: any = new PrisChunk(null);
-         if (chunk.loadLight) chunk.loadLight(chunkData.light);
-         if (chunk.load) chunk.load(chunkData.chunk, chunkData.bitmaps);
+         if (chunkData) {
+           if (chunk.loadLight) chunk.loadLight(chunkData.light);
+           if (chunk.load) chunk.load(chunkData.chunk, chunkData.bitmaps);
+         }
 
          for (const b of chunkBlocks) {
             const localX = b.bx % 16;
@@ -961,6 +972,7 @@ async function startServer() {
          });
       }
       
+      if (typeof worldProvider.close === 'function') await worldProvider.close();
       res.json({ success: true });
     } catch(e: any) {
       console.error(e);
@@ -1053,16 +1065,16 @@ Exemplo 2: "Deixe-me pesquisar: <call:PESQUISAR>mcMMO setup</call>"
         
         if (provider === "remote" && currentKey) {
            targetEndpoint = "https://api.openai.com/v1/chat/completions";
-           model = modelName || "gpt-4o-mini";
+           model = "gpt-4o-mini";
            if (currentKey.startsWith("gsk_")) {
              targetEndpoint = "https://api.groq.com/openai/v1/chat/completions";
-             model = modelName || "llama-3.3-70b-versatile"; 
+             model = "llama-3.3-70b-versatile"; 
            } else if (currentKey.startsWith("xai-")) {
              targetEndpoint = "https://api.x.ai/v1/chat/completions";
-             model = modelName || "grok-2-latest";
+             model = "grok-2-latest";
            } else if (currentKey.startsWith("nvapi-")) {
              targetEndpoint = "https://integrate.api.nvidia.com/v1/chat/completions";
-             model = modelName || "deepseek-ai/deepseek-r1";
+             model = "deepseek-ai/deepseek-r1";
            }
         }
 
@@ -1205,16 +1217,16 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
 
         if (provider === "remote" && currentKey) {
            targetEndpoint = "https://api.openai.com/v1/chat/completions";
-           model = modelName || "gpt-4o-mini";
+           model = "gpt-4o-mini";
            if (currentKey.startsWith("gsk_")) {
              targetEndpoint = "https://api.groq.com/openai/v1/chat/completions";
-             model = modelName || "llama-3.3-70b-versatile"; 
+             model = "llama-3.3-70b-versatile"; 
            } else if (currentKey.startsWith("xai-")) {
              targetEndpoint = "https://api.x.ai/v1/chat/completions";
-             model = modelName || "grok-2-latest";
+             model = "grok-2-latest";
            } else if (currentKey.startsWith("nvapi-")) {
              targetEndpoint = "https://integrate.api.nvidia.com/v1/chat/completions";
-             model = modelName || "deepseek-ai/deepseek-v4-pro"; // Default Nvidia model
+             model = "deepseek-ai/deepseek-v4-pro"; // Default Nvidia model
            }
         }
 

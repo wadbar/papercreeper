@@ -45,7 +45,7 @@ export const askAI = async (
                 if (dataStr === "[DONE]") continue;
                 try {
                    const data = JSON.parse(dataStr);
-                   if (data.error) throw new Error(data.error);
+                   if (data.error) { const errText = typeof data.error === 'string' ? data.error : JSON.stringify(data.error); fullText += '\n❌ Erro: ' + errText; onChunk(fullText); break; }
                    const content = data.choices ? (data.choices[0].delta?.content || "") : "";
                    if (content) {
                       fullText += content;
