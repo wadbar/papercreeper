@@ -127,7 +127,6 @@ const translations: any = {
     ai_api_key_title: "AI API (Universal)",
     ai_api_key_sub:
       "Supports Gemini (AIza...), OpenAI (sk-...), Groq (gsk_...) and xAI (xai-...)",
-    ai_api_key_btn: "Configure",
     ai_api_key_save: "Save",
     ai_api_key_placeholder: "Paste your API KEY...",
     ai_api_key_success: "✅ Key saved locally! AI Assistant is now online.",
@@ -149,7 +148,6 @@ const translations: any = {
     waiting_vitals: "Waiting for vital signs...",
     editor_title: "Editor",
     cancel: "CANCEL",
-    save: "SAVE",
     direct_download: "Direct Download",
     download_now: "DOWNLOAD NOW",
     download_hint: "Paste direct file link here (.jar, .zip, etc)",
@@ -292,7 +290,6 @@ const translations: any = {
     ai_api_key_title: "API IA (Universal)",
     ai_api_key_sub:
       "Suporta Gemini (AIza...), OpenAI (sk-...), Groq (gsk_...) e xAI (xai-...)",
-    ai_api_key_btn: "Configurar",
     ai_api_key_save: "Salvar",
     ai_api_key_placeholder: "Cole sua API KEY...",
     ai_api_key_success:
@@ -315,7 +312,6 @@ const translations: any = {
     waiting_vitals: "Aguardando sinais vitais...",
     editor_title: "Editor",
     cancel: "CANCELAR",
-    save: "SALVAR",
     direct_download: "Download Direto",
     download_now: "BAIXAR AGORA",
     download_hint: "Cole aqui o link direto do arquivo (.jar, .zip, etc)",
@@ -1880,7 +1876,13 @@ export default function App({
     setAiLoading(true);
 
     try {
-      const keysArray = aiKeysList.split(",").map(k => k.trim()).filter(k => k.length > 5);
+      let keysArray = aiKeysList.split(",").map(k => k.trim()).filter(k => k.length > 5);
+      if (aiProvider === "local") {
+        const foundAi = customAIs.find(a => a.endpoint === aiEndpoint && a.model === aiLocalModel);
+        if (foundAi && foundAi.apiKey && foundAi.apiKey.trim().length > 0) {
+           keysArray.unshift(foundAi.apiKey.trim());
+        }
+      }
       const context = `Servidor Selecionado: ${currentServerId}. Status: ${serverState.status}. Logs recentes:\n${serverState.logs.slice(-10).join("\n")}`;
       
       let firstResult: any = null;
@@ -1897,7 +1899,7 @@ export default function App({
         };
       } else {
          setAiChat((prev) => [...prev, { role: "assistant", text: "..." }]);
-         firstResult = await askAI(finalMsg, context, currentServerId, aiProvider, aiEndpoint, aiChat.slice(-10), aiLocalModel, keysArray, modules, { stream: true }, (chunk) => {
+         firstResult = await askAI(finalMsg, context, currentServerId, aiProvider, aiEndpoint, aiChat.slice(-10), aiLocalModel, keysArray, modules, (chunk) => {
             setAiChat((prev) => {
                const n = [...prev];
                n[n.length - 1].text = chunk;
@@ -1935,7 +1937,6 @@ Por favor, explique ou detalhe esse resultado para mim de forma natural e amigá
           aiLocalModel,
           keysArray,
           modules,
-          { stream: true },
           (chunk) => {
              setAiChat((prev) => {
                 const n = [...prev];
@@ -1978,7 +1979,13 @@ Por favor, explique ou detalhe esse resultado para mim de forma natural e amigá
     setPluginCode("");
 
     try {
-      const keysArray = aiKeysList.split(",").map(k => k.trim()).filter(k => k.length > 5);
+      let keysArray = aiKeysList.split(",").map(k => k.trim()).filter(k => k.length > 5);
+      if (aiProvider === "local") {
+        const foundAi = customAIs.find(a => a.endpoint === aiEndpoint && a.model === aiLocalModel);
+        if (foundAi && foundAi.apiKey && foundAi.apiKey.trim().length > 0) {
+           keysArray.unshift(foundAi.apiKey.trim());
+        }
+      }
       const prompt = `Atue como um desenvolvedor Skript (Minecraft). O usuário quer o seguinte plugin/sistema:
 "${pluginDescription}"
 

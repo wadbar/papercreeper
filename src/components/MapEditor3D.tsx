@@ -90,13 +90,13 @@ function CameraRepositioner({ coords }: { coords: { x: number, y: number, z: num
 }
 
 export default function MapEditor3D({ serverId, initialWorldName }: { serverId?: string, initialWorldName?: string }) {
-  const [history, setHistory] = useState<{ past: {pos: [number, number, number], color: string}[][], present: {pos: [number, number, number], color: string}[], future: {pos: [number, number, number], color: string}[][] }>({
+  const [history, setHistory] = useState<{ past: {pos: [number, number, number], color: string, name?: string}[][], present: {pos: [number, number, number], color: string, name?: string}[], future: {pos: [number, number, number], color: string, name?: string}[][] }>({
     past: [], present: [], future: []
   });
 
   const blocks = history.present;
 
-  const updateBlocks = (newBlocks: {pos: [number, number, number], color: string}[]) => {
+  const updateBlocks = (newBlocks: {pos: [number, number, number], color: string, name?: string}[]) => {
     setHistory(h => ({ past: [...h.past, h.present], present: newBlocks, future: [] }));
   };
 
@@ -120,7 +120,7 @@ export default function MapEditor3D({ serverId, initialWorldName }: { serverId?:
   const [pos2, setPos2] = useState<[number, number, number] | null>(null);
   const [hoverPos, setHoverPos] = useState<[number, number, number] | null>(null);
   
-  const [clipboard, setClipboard] = useState<{pos: [number, number, number], color: string}[]>([]);
+  const [clipboard, setClipboard] = useState<{pos: [number, number, number], color: string, name?: string}[]>([]);
   const [loading, setLoading] = useState(false);
   const [worldName, setWorldName] = useState(initialWorldName || 'world');
   const [availableWorlds, setAvailableWorlds] = useState<string[]>([]);

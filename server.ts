@@ -705,9 +705,11 @@ async function startServer() {
          maxZ = Math.max(maxZ, b.pos[2]);
       }
 
-      const Schematic = (await import("prismarine-schematic")).Schematic;
-      const vec3 = (await import("vec3")).default;
-      const BlockConstructor = (await import("prismarine-block")).default('1.16.4');
+      const Schematic = (await import("prismarine-schematic")).Schematic as any;
+      const vec3 = (await import("vec3")).default || (await import("vec3")) as any;
+      const pBlock = await import("prismarine-block");
+      const BFunc = (pBlock.default || pBlock) as any;
+      const BlockConstructor = BFunc('1.16.4');
       const mcData = (await import("minecraft-data")).default('1.16.4');
       
       const width = maxX - minX + 1;
@@ -859,7 +861,8 @@ async function startServer() {
                         const absX = (chunkX * 16) + dx;
                         const absZ = (chunkZ * 16) + dz;
                         
-                        const blockObj = chunk.getBlock(new (await import('vec3')).default(dx, by, dz));
+                        const Vec3Class = (await import('vec3')).default || await import('vec3') as any;
+                        const blockObj = chunk.getBlock(new Vec3Class(dx, by, dz));
                         blocks.push({ pos: [absX, by, absZ], color, stateId: b, name: blockObj?.name || 'stone' });
                      }
                   }
@@ -1014,6 +1017,7 @@ async function startServer() {
       }
 
       const currentKey = keysToTry.length > 0 ? keysToTry[0] : "";
+      const isGeminiKey = currentKey && (currentKey.startsWith("AIza") || currentKey === "AIza_fallback");
       
       const systemInstruction = `
 Você é o "PaperCreeper AI", o OPERADOR SUPREMO e ENGENHEIRO de servidores Minecraft.
@@ -1043,7 +1047,7 @@ Exemplo 2: "Deixe-me pesquisar: <call:PESQUISAR>mcMMO setup</call>"
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      if (provider === "local" || provider === "custom" || (currentKey && !currentKey.startsWith("AIzaSy"))) {
+      if (provider === "local" || provider === "custom" || !isGeminiKey) {
         let targetEndpoint = endpoint || "http://127.0.0.1:11434/v1/chat/completions";
         let model = modelName || "llama3";
         
@@ -1193,9 +1197,27 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
 
       let text = "";
 
-      if (provider === "local") {
-        // Local AI (LM Studio, Ollama, etc) via OpenAI API compatible endpoint
-        const targetEndpoint = endpoint || "http://127.0.0.1:11434/v1/chat/completions";
+      if (provider === "local" || provider === "custom" || !isGeminiKey) {
+        // Local/Custom AI via OpenAI API compatible endpoint OR External Remote (Groq, xAI, OpenAI)
+        let targetEndpoint = endpoint || "http://127.0.0.1:11434/v1/chat/completions";
+        let model = modelName || "llama3";
+        const currentKey = keysToTry.length > 0 ? keysToTry[0] : "";
+
+        if (provider === "remote" && currentKey) {
+           targetEndpoint = "https://api.openai.com/v1/chat/completions";
+           model = modelName || "gpt-4o-mini";
+           if (currentKey.startsWith("gsk_")) {
+             targetEndpoint = "https://api.groq.com/openai/v1/chat/completions";
+             model = modelName || "llama-3.3-70b-versatile"; 
+           } else if (currentKey.startsWith("xai-")) {
+             targetEndpoint = "https://api.x.ai/v1/chat/completions";
+             model = modelName || "grok-2-latest";
+           } else if (currentKey.startsWith("nvapi-")) {
+             targetEndpoint = "https://integrate.api.nvidia.com/v1/chat/completions";
+             model = modelName || "deepseek-ai/deepseek-v4-pro"; // Default Nvidia model
+           }
+        }
+
         const messages = [{ role: "system", content: systemInstruction }];
         if (context) messages.push({ role: "system", content: `CONTEXTO ATUAL DO SERVIDOR:\n${context}` });
         
@@ -1209,13 +1231,13 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
         const timeoutId = setTimeout(() => controller.abort(), 60000);
 
         const fetchHeaders: any = { "Content-Type": "application/json" };
-        if (keysToTry.length > 0) {
-          fetchHeaders["Authorization"] = `Bearer ${keysToTry[0]}`;
+        if (currentKey) {
+          fetchHeaders["Authorization"] = `Bearer ${currentKey}`;
         }
 
-        const fetchPayload: any = { model: modelName || "llama3", messages, temperature: 0.7 };
+        const fetchPayload: any = { model, messages, temperature: 0.7 };
         
-        if (targetEndpoint.includes("nvidia.com") && typeof modelName === "string" && modelName.includes("deepseek")) {
+        if (targetEndpoint.includes("nvidia.com") && typeof model === "string" && model.includes("deepseek")) {
           fetchPayload.chat_template_kwargs = { thinking: false };
         }
 
@@ -1231,8 +1253,8 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
         const oaiData: any = await oaiRes.json();
         text = oaiData.choices?.[0]?.message?.content || "";
 
-      } else if (keysToTry.length > 0 && isGeminiKey) {
-        // Assume all keys are Gemini keys
+      } else {
+        // Gemini
         const tryKey = async (key: string) => {
           const localAi = new GoogleGenAI({ apiKey: key });
           
@@ -1271,61 +1293,6 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
             if (i === keysToTry.length - 1) throw e;
           }
         }
-      } else {
-        // External OpenAI-compatible (Groq, xAI, OpenAI)
-        let targetEndpoint = "https://api.openai.com/v1/chat/completions";
-        let model = modelName || "gpt-4o-mini";
-        const currentKey = keysToTry.length > 0 ? keysToTry[0] : "";
-
-        if (currentKey.startsWith("gsk_")) {
-          targetEndpoint = "https://api.groq.com/openai/v1/chat/completions";
-          model = modelName || "llama-3.3-70b-versatile"; 
-        } else if (currentKey.startsWith("xai-")) {
-          targetEndpoint = "https://api.x.ai/v1/chat/completions";
-          model = modelName || "grok-2-latest";
-        } else if (currentKey.startsWith("nvapi-")) {
-          targetEndpoint = "https://integrate.api.nvidia.com/v1/chat/completions";
-          model = modelName || "deepseek-ai/deepseek-v4-pro"; // Default Nvidia model
-        }
-
-        const messages = [{ role: "system", content: systemInstruction }];
-        if (context) messages.push({ role: "system", content: `CONTEXTO ATUAL DO SERVIDOR:\n${context}` });
-        
-        if (history && Array.isArray(history)) {
-          history.forEach(msg => messages.push({ role: msg.role === "assistant" ? "assistant" : "user", content: msg.text }));
-        }
-
-        messages.push({ role: "user", content: prompt });
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000);
-
-        const fetchPayload: any = { model, messages, temperature: 0.8 };
-        
-        if (targetEndpoint.includes("nvidia.com") && typeof model === "string" && model.includes("deepseek")) {
-          fetchPayload.chat_template_kwargs = { thinking: false };
-        }
-
-        const oaiRes = await fetch(targetEndpoint, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${currentKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(fetchPayload),
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-
-        if (!oaiRes.ok) {
-          const errJson = await oaiRes.json().catch(() => ({}));
-          throw new Error(
-            errJson.error?.message || `Http error ${oaiRes.status}`,
-          );
-        }
-
-        const oaiData: any = await oaiRes.json();
-        text = oaiData.choices?.[0]?.message?.content || "";
       }
 
       // Tenta extrair ações do texto de forma resiliente
