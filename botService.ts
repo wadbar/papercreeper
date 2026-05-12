@@ -80,133 +80,88 @@ export async function manageBot(
                if (fs.existsSync(memFile)) memoryData = fs.readFileSync(memFile, "utf-8");
            } catch(e) {}
            
-          const prompt = `Você é um robô in-game jogando dentro de um servidor de Minecraft. Seu nome de jogador é ${botName}.
+           const prompt = `Você é um robô in-game jogando dentro de um servidor de Minecraft. Seu nome de jogador é ${botName}.
           Sua Memória Permanente (Autoaprendizado/Mundo): ${memoryData}
           Sua personalidade: Altamente prestativa, zoeira, gosta de aventuras (RPG) e muito experiente em Minecraft. Você gosta de contar histórias da "Lore" do mundo.
           O jogador ${playerUsername} interepelou você e disse: "${message}".
-          Reaja e responda de forma amigável entrando no personagem dentro do jogo. Vá direto ao assunto com no máximo 2 frases para o chat. Se te pedirem recursos, você pode usar a função give_item.`;
+          Reaja e responda de forma amigável entrando no personagem dentro do jogo. Vá direto ao assunto com no máximo 2 frases para o chat. Se te pedirem recursos, você pode usar a ação give_item.
+          
+          Se você precisar executar comandos no jogo, seguir o jogador, ou usar habilidades especiais, DEVOLVA NO MEIO DO SEU TEXTO A TAG DE AÇÃO! (Você pode falar e agir ao mesmo tempo).
+          Formato de Ação Exato: [ACTION: {"name":"NOME_DA_ACAO", "args":{"param1":"valor"} }]
+          
+          Lista de Ações Suportadas (name):
+          - run_os_command (args: { command: string })
+          - run_minecraft_command (args: { command: string (sem a barra) })
+          - follow_player (args: {})
+          - stop_following (args: {})
+          - attack_nearest_mob (args: {})
+          - go_to_coordinates (args: { x: number, y: number, z: number })
+          - give_quest (args: { player: string, questName: string, questDescription: string })
+          - perform_action (args: { action: "swing_arm" | "jump" | "sneak" | "unsneak" | "look_at_player" })
+          - save_memory (args: { key: string, value: string })
+          - give_item (args: { player: string, item: string, amount: string })
+          - tell_story (args: { story: string (textao formatado) })
+          `;
 
-          const tools: any[] = [
-             {
-               functionDeclarations: [
-                 {
-                   name: "run_os_command",
-                   description: "Executa um comando na VPS/Host (Linux/Windows) via shell",
-                   parameters: {
-                     type: Type.OBJECT,
-                     properties: { command: { type: Type.STRING, description: "O comando shell" } },
-                     required: ["command"]
-                   }
-                 },
-                 {
-                   name: "run_minecraft_command",
-                   description: "Executa comando OP dentro do Minecraft",
-                   parameters: {
-                     type: Type.OBJECT,
-                     properties: { command: { type: Type.STRING, description: "O comando minecraft sem a barra" } },
-                     required: ["command"]
-                   }
-                 },
-                 {
-                    name: "follow_player",
-                    description: "Usa o pathfinder pra seguir o jogador infinitamente até mandar parar",
-                    parameters: { type: Type.OBJECT, properties: {} }
-                 },
-                 {
-                    name: "stop_following",
-                    description: "Para de seguir o jogador ou para o caminho atual",
-                    parameters: { type: Type.OBJECT, properties: {} }
-                 },
-                 {
-                    name: "attack_nearest_mob",
-                    description: "Ataca o monstro mais próximo (Hostile ou Animal)",
-                    parameters: { type: Type.OBJECT, properties: {} }
-                 },
-                 {
-                    name: "go_to_coordinates",
-                    description: "Vai até uma coordenada específica (x, y, z) andando fisicamente",
-                    parameters: {
-                      type: Type.OBJECT,
-                      properties: { 
-                         x: { type: Type.NUMBER },
-                         y: { type: Type.NUMBER },
-                         z: { type: Type.NUMBER }
-                      },
-                      required: ["x", "y", "z"]
-                    }
-                 },
-                 {
-                    name: "give_quest",
-                    description: "Dá uma nova Quest para o jogador salvando na memória do bot",
-                    parameters: {
-                      type: Type.OBJECT,
-                      properties: { 
-                         player: { type: Type.STRING },
-                         questName: { type: Type.STRING },
-                         questDescription: { type: Type.STRING }
-                      },
-                      required: ["player", "questName", "questDescription"]
-                    }
-                 },
-                 {
-                    name: "perform_action",
-                    description: "Faz alguma ação in-game para parecer vivo",
-                    parameters: {
-                      type: Type.OBJECT,
-                      properties: { 
-                         action: { type: Type.STRING, description: "Valores válidos: swing_arm, jump, sneak, unsneak, look_at_player" }
-                      },
-                      required: ["action"]
-                    }
-                 },
-                 {
-                    name: "save_memory",
-                    description: "Salva uma predefinição na memória para você poder consultar depois de reiniciar. Útil para lembrar quem é seu criador ou donos da casa.",
-                    parameters: {
-                      type: Type.OBJECT,
-                      properties: { 
-                         key: { type: Type.STRING },
-                         value: { type: Type.STRING }
-                      },
-                      required: ["key", "value"]
-                    }
-                 },
-                 {
-                    name: "give_item",
-                    description: "Dá um item ao jogador via comando do Minecraft",
-                    parameters: {
-                      type: Type.OBJECT,
-                      properties: { 
-                         player: { type: Type.STRING, description: "Nome do jogador" },
-                         item: { type: Type.STRING, description: "ID do item (ex: diamond_sword, apple)" },
-                         amount: { type: Type.STRING, description: "Quantidade (padrão 1)" }
-                      },
-                      required: ["player", "item"]
-                    }
-                 },
-                 {
-                    name: "tell_story",
-                    description: "Conta uma mini história ou lore no chat do servidor em parágrafos. Use isso para ser um NPC rpg.",
-                    parameters: {
-                      type: Type.OBJECT,
-                      properties: { 
-                         story: { type: Type.STRING, description: "A historia gerada (fale em blocos)" }
-                      },
-                      required: ["story"]
-                    }
-                 }
-               ]
+          let targetEndpoint = "https://api.openai.com/v1/chat/completions";
+          let model = "gpt-4o-mini";
+          
+          if (currentKey.startsWith("AIza") || currentKey === "AIza_fallback") {
+             // We can use Google endpoint directly with REST API
+             targetEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${currentKey}`;
+          } else if (currentKey.startsWith("gsk_")) {
+             targetEndpoint = "https://api.groq.com/openai/v1/chat/completions";
+             model = "llama-3.3-70b-versatile"; 
+          } else if (currentKey.startsWith("xai-")) {
+             targetEndpoint = "https://api.x.ai/v1/chat/completions";
+             model = "grok-2-latest";
+          } else if (currentKey.startsWith("nvapi-")) {
+             targetEndpoint = "https://integrate.api.nvidia.com/v1/chat/completions";
+             model = "deepseek-ai/deepseek-r1";
+          } else if (currentKey === "local" || (!currentKey.startsWith("sk-") && currentKey.length < 15)) {
+             // Fallback local
+             targetEndpoint = "http://127.0.0.1:11434/v1/chat/completions";
+             model = "llama3";
+          }
+
+          let textResponse = "";
+          let functionCalls = [];
+
+          try {
+             if (targetEndpoint.includes("generativelanguage.googleapis.com")) {
+                 const res = await fetch(targetEndpoint, {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                 });
+                 const data = await res.json();
+                 textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+             } else {
+                 const res = await fetch(targetEndpoint, {
+                    method: "POST", 
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${currentKey}` },
+                    body: JSON.stringify({ model, messages: [{ role: "system", content: prompt }] })
+                 });
+                 const data = await res.json();
+                 textResponse = data.choices?.[0]?.message?.content || "";
              }
-          ];
+          } catch(err) {
+             bot.chat("Deu um tilt na minha IA...");
+             return;
+          }
+
+          const actionMatch = textResponse.match(/\[ACTION:\s*({[\s\S]+?})\s*]/i);
+          if (actionMatch) {
+             try {
+                let jsonStr = actionMatch[1].trim();
+                jsonStr = jsonStr.replace(/```json/gi, "").replace(/```/g, "").trim();
+                const parsedCall = JSON.parse(jsonStr);
+                functionCalls.push(parsedCall);
+                textResponse = textResponse.replace(actionMatch[0], "").trim();
+             } catch(e) {}
+          }
           
-          const response = await ai.models.generateContent({
-             model: "gemini-2.5-flash",
-             contents: prompt,
-             config: { tools: tools }
-          });
-          
-          if (response.functionCalls && response.functionCalls.length > 0) {
-             for (const call of response.functionCalls) {
+          if (functionCalls.length > 0) {
+             for (const call of functionCalls) {
                  if (call.name === "run_os_command") {
                      const cmd = call.args?.command as string;
                      exec(cmd, (err, stdout, stderr) => {
@@ -298,13 +253,13 @@ export async function manageBot(
              }
           }
           
-          if (response.text) {
-             const lines = response.text.split("\n").map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+          if (textResponse) {
+             const lines = textResponse.split("\n").map((l: string) => l.trim()).filter((l: string) => l.length > 0);
              for(let l of lines) {
                 bot.chat(l.substring(0, Math.min(l.length, 250)));
                 await new Promise(r => setTimeout(r, 1000)); // anti spam
              }
-             emitLog(`[Bot] Respondeu: ${response.text}`);
+             emitLog(`[Bot] Respondeu: ${textResponse}`);
           }
         } catch (e: any) {
           emitLog(`[Bot] Erro de IA: ${e.message}`);

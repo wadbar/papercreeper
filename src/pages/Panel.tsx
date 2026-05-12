@@ -4073,7 +4073,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
 
                     {showEditor3D && (
                       <div className="w-full mt-4 min-h-[600px] flex flex-col">
-                         <MapEditor3D serverId={currentServerId} initialWorldName={editorWorld} />
+                         <MapEditor3D serverId={currentServerId} serverName={servers.find(s => s.id === currentServerId)?.name} initialWorldName={editorWorld} />
                       </div>
                     )}
 

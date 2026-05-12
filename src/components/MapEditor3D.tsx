@@ -98,7 +98,7 @@ function CameraRepositioner({ coords }: { coords: { x: number, y: number, z: num
   return null;
 }
 
-export default function MapEditor3D({ serverId, initialWorldName }: { serverId?: string, initialWorldName?: string }) {
+export default function MapEditor3D({ serverId, serverName, initialWorldName }: { serverId?: string, serverName?: string, initialWorldName?: string }) {
   const [history, setHistory] = useState<{ past: {pos: [number, number, number], color: string, name?: string}[][], present: {pos: [number, number, number], color: string, name?: string}[], future: {pos: [number, number, number], color: string, name?: string}[][] }>({
     past: [], present: [], future: []
   });
@@ -279,8 +279,14 @@ export default function MapEditor3D({ serverId, initialWorldName }: { serverId?:
          body: JSON.stringify({ serverId, worldName: wn, x: cx, y: cy, z: cz, size: 16 }) 
       });
       const data = await res.json();
-      if (data.error) { return; } // Silently fail on first load if world not ready
+      if (data.error) { 
+         alert("Não foi possível carregar o mapa: " + data.error);
+         return; 
+      }
       if (data.blocks) {
+         if (data.blocks.length === 0) {
+            alert("Atenção: A chunk carregada está vazia (0 blocos). O servidor gerou esse mundo? Tente ligar o servidor, explorar a área ou mudar as coordenadas.");
+         }
          const mapped = data.blocks.map((b: any) => ({
             pos: [b.pos[0], b.pos[1], b.pos[2]], 
             color: b.color,
@@ -368,6 +374,7 @@ export default function MapEditor3D({ serverId, initialWorldName }: { serverId?:
          <div className="flex items-center gap-4 text-zinc-300 text-xs font-semibold overflow-x-auto custom-scrollbar whitespace-nowrap hidden sm:flex">
            <span className="flex items-center gap-2 text-emerald-400"><MapIcon size={14}/> MCEdit 2.0 Web Engine</span>
            <div className="h-4 w-px bg-zinc-600"></div>
+           {serverName && <span className="text-zinc-400 bg-zinc-800 px-2 rounded">Servidor: {serverName}</span>}
            <button onClick={undo} className="hover:text-white disabled:opacity-30" disabled={history.past.length===0}>Undo</button>
            <button onClick={redo} className="hover:text-white disabled:opacity-30" disabled={history.future.length===0}>Redo</button>
          </div>

@@ -26,10 +26,23 @@ export const askAI = async (
 
       if (!response.body) throw new Error("Sem body na resposta");
       
+      const contentType = response.headers.get("content-type");
+      let fullText = "";
+      if (contentType && contentType.includes("application/json")) {
+         const data = await response.json();
+         if (data.error) {
+            fullText = "❌ Erro: " + data.error;
+            onChunk(fullText);
+            return data;
+         }
+         fullText = data.text || "";
+         onChunk(fullText);
+         return data;
+      }
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
       let done = false;
-      let fullText = "";
       let buffer = "";
       
       while (!done) {

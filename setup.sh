@@ -5,8 +5,10 @@ echo "💎 Iniciando Setup do PaperCreeper AI..."
 
 # 1. Preparar o sistema (Essencial para Codespaces/Linux)
 echo "📦 Atualizando dependências do sistema..."
-if command -v apt-get &> /dev/null; then
-    sudo apt-get update && sudo apt-get install -y git
+if ! command -v git &> /dev/null; then
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update && sudo apt-get install -y git
+    fi
 fi
 
 if command -v pip &> /dev/null; then

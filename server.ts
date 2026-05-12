@@ -793,6 +793,15 @@ async function startServer() {
       const worldPath = path.join(srvDir, worldName || "world");
       if (!fs.existsSync(worldPath)) return res.json({ error: "Mundo não encontrado ou servidor não gerou o world." });
 
+      const isNether = worldName?.includes("nether") || worldName?.endsWith("_nether");
+      const isEnd = worldName?.includes("end") || worldName?.endsWith("_the_end");
+      let regionPath = path.join(worldPath, "region");
+      if (isNether && fs.existsSync(path.join(worldPath, "DIM-1", "region"))) {
+         regionPath = path.join(worldPath, "DIM-1", "region");
+      } else if (isEnd && fs.existsSync(path.join(worldPath, "DIM1", "region"))) {
+         regionPath = path.join(worldPath, "DIM1", "region");
+      }
+
       let AnvilPkg: any, ChunkPkg: any, registry: any;
       try {
         AnvilPkg = await import("prismarine-provider-anvil");
@@ -800,12 +809,12 @@ async function startServer() {
         const registryAll = await import("prismarine-registry");
         registry = registryAll.default ? registryAll.default("1.20.1") : (registryAll as any)("1.20.1");
       } catch (err: any) {
-        return res.json({ error: "Módulos de mapa não encontrados. Certifique-se de instalar as dependências: npm install prismarine-provider-anvil prismarine-chunk prismarine-registry" });
+        return res.json({ error: "Módulos de mapa não encontrados." });
       }
 
       const Anvil = AnvilPkg.default ? AnvilPkg.default.Anvil : AnvilPkg.Anvil;
       const AnvilWorld = Anvil("1.20.1");
-      const worldProvider = new AnvilWorld(path.join(worldPath, "region"));
+      const worldProvider = new AnvilWorld(regionPath);
 
       const loadSize = Math.min(size || 16, 16); 
       const startX = Math.floor(x || 0);
@@ -840,13 +849,13 @@ async function startServer() {
          }
       }
            for (let dx = 0; dx < 16; dx++) { // loop full 16x16 chunk horizontally
-              // Load bigger vertical segment centered around startY
-              const loadHeight = 128;
-              const searchStartY = Math.max(0, startY - 64);
+              // Load full 1.20 chunk bounds from -64 height
+              const loadHeight = 384;
+              const searchStartY = -64;
               for (let dy = 0; dy < loadHeight; dy++) {
                 for (let dz = 0; dz < 16; dz++) {
                   const by = searchStartY + dy;
-                  if (by < 0 || by > 319) continue;
+                  if (by < -64 || by > 319) continue;
                   
                   const b = chunk.getBlockStateId({ x: dx, y: by, z: dz } as any);
                   if (b > 0) { // Not Air
@@ -861,23 +870,25 @@ async function startServer() {
                      else if (dx === 0 || dx === 15 || dz === 0 || dz === 15) isVisible = true;
                      
                      if (isVisible) {
+                        const Vec3Class = (await import('vec3')).default || await import('vec3') as any;
+                        const blockObj = chunk.getBlock(new Vec3Class(dx, by, dz));
+                        const name = blockObj?.name || 'stone';
+
                         // Color mapping roughly
                         let color = 'stone';
-                        if (b === 2 || b === 9 || b === 10) color = 'grass';
-                        else if (b === 3 || b === 11 || b === 12) color = 'dirt';
-                        else if (b === 8 || b === 9) color = 'water';
-                        else if (b === 12) color = 'sand';
-                        else if (b === 17) color = 'wood';
-                        else if (b === 18) color = 'leaves';
-                        else if (b === 20) color = 'glass';
+                        if (name.includes('grass')) color = 'grass';
+                        else if (name.includes('dirt')) color = 'dirt';
+                        else if (name.includes('water')) color = 'water';
+                        else if (name.includes('sand')) color = 'sand';
+                        else if (name.includes('log') || name.includes('wood')) color = 'wood';
+                        else if (name.includes('leaves')) color = 'leaves';
+                        else if (name.includes('glass')) color = 'glass';
                         else color = 'stone';
                         
                         const absX = (chunkX * 16) + dx;
                         const absZ = (chunkZ * 16) + dz;
                         
-                        const Vec3Class = (await import('vec3')).default || await import('vec3') as any;
-                        const blockObj = chunk.getBlock(new Vec3Class(dx, by, dz));
-                        blocks.push({ pos: [absX, by, absZ], color, stateId: b, name: blockObj?.name || 'stone' });
+                        blocks.push({ pos: [absX, by, absZ], color, stateId: b, name });
                      }
                   }
                 }
@@ -897,6 +908,15 @@ async function startServer() {
       const worldPath = path.join(srvDir, worldName || "world");
       if (!fs.existsSync(worldPath)) return res.json({ error: "Mundo não encontrado." });
 
+      const isNether = worldName?.includes("nether") || worldName?.endsWith("_nether");
+      const isEnd = worldName?.includes("end") || worldName?.endsWith("_the_end");
+      let regionPath = path.join(worldPath, "region");
+      if (isNether && fs.existsSync(path.join(worldPath, "DIM-1", "region"))) {
+         regionPath = path.join(worldPath, "DIM-1", "region");
+      } else if (isEnd && fs.existsSync(path.join(worldPath, "DIM1", "region"))) {
+         regionPath = path.join(worldPath, "DIM1", "region");
+      }
+
       let AnvilPkg: any, ChunkPkg: any, registry: any;
       try {
         AnvilPkg = await import("prismarine-provider-anvil");
@@ -909,7 +929,7 @@ async function startServer() {
 
       const Anvil = AnvilPkg.default ? AnvilPkg.default.Anvil : AnvilPkg.Anvil;
       const AnvilWorld = Anvil("1.20.1");
-      const worldProvider = new AnvilWorld(path.join(worldPath, "region"));
+      const worldProvider = new AnvilWorld(regionPath);
 
       const PrisChunk = ChunkPkg.default ? ChunkPkg.default(registry) : ChunkPkg(registry);
       
@@ -1238,7 +1258,7 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
              model = modelName || "grok-2-latest";
            } else if (currentKey.startsWith("nvapi-")) {
              targetEndpoint = "https://integrate.api.nvidia.com/v1/chat/completions";
-             model = modelName || "deepseek-ai/deepseek-v4-pro"; // Default Nvidia model
+             model = modelName || "deepseek-ai/deepseek-r1"; // Default Nvidia model
            }
         }
 
