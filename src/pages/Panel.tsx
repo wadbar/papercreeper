@@ -849,10 +849,16 @@ export default function App({
       Object.entries(resData.servers).forEach(([id, data]: [string, any]) => {
         if (id === currentServerId) {
           setServerState((prev) => {
+            const hasNewLogs = data.logCount > lastLogCount.current;
             const newLogs = lastLogCount.current === 0 ? data.logs : [...prev.logs, ...data.logs];
             const maxLogs = isHibernating ? 50 : 300;
             const trimmedLogs = newLogs.length > maxLogs ? newLogs.slice(-maxLogs) : newLogs;
-            return { ...data, logs: trimmedLogs };
+            
+            // Only update completely if we have new logs or status fundamentally changed
+            if (hasNewLogs || prev.status !== data.status || JSON.stringify(prev.stats) !== JSON.stringify(data.stats)) {
+               return { ...data, logs: trimmedLogs };
+            }
+            return prev;
           });
           lastLogCount.current = data.logCount;
           if (data.config && isSyncingRam) setRamConfig(data.config);
@@ -862,9 +868,14 @@ export default function App({
            setMultiServerStates(prev => {
              const prevLogs = prev[id]?.logs || [];
              const idx = multiLogCounts.current[id] || 0;
+             const hasNewLogs = data.logCount > idx;
              const newLogs = idx === 0 ? data.logs : [...prevLogs, ...data.logs];
              const trimmedLogs = newLogs.length > 300 ? newLogs.slice(-300) : newLogs;
-             return { ...prev, [id]: { ...data, logs: trimmedLogs } };
+             
+             if (hasNewLogs || prev[id]?.status !== data.status || JSON.stringify(prev[id]?.stats) !== JSON.stringify(data.stats)) {
+               return { ...prev, [id]: { ...data, logs: trimmedLogs } };
+             }
+             return prev;
            });
            multiLogCounts.current[id] = data.logCount;
         }

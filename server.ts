@@ -3130,7 +3130,7 @@ command /creeper-ai <text>:
       res.json({ message: "Atualização iniciada. Reiniciando o servidor..." });
 
       const cmd =
-        "(git fetch --all && git reset --hard origin/main || git reset --hard origin/master || echo '[System] Not a git repo, skipping pull') && npm install && npm run build";
+        "(git fetch --all && git reset --hard origin/main || git reset --hard origin/master || echo '[System] Git sync failed or not a git repo, skipping pull') && npm install --no-audit --no-fund && npm run build";
 
       console.log("[System] Auto-update initiated...");
 
@@ -3138,14 +3138,13 @@ command /creeper-ai <text>:
         if (error) {
           console.error("[System] Auto-update error:", error);
           console.error("[System] Stderr:", stderr);
-          // Don't fail completely, try to restart anyway
         }
         console.log("[System] Auto-update complete:\n" + stdout);
-        console.log("[System] Atualização concluída. Reiniciando...");
-        process.exit(0); // Exiting process so it gets restarted by the environment/pm2
+        console.log("[System] Atualização concluída. Reiniciando processo...");
+        process.exit(0); // pm2 or supervisor will restart this
       });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      if (!res.headersSent) res.status(500).json({ error: err.message });
     }
   });
 

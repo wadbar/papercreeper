@@ -3,12 +3,10 @@
 # PaperCreeper Auto-Installer & Optimizer
 echo "💎 Iniciando Setup do PaperCreeper AI..."
 
-# 1. Preparar o sistema (Essencial para Codespaces/Linux)
+# 1. Preparar o sistema (Removido sudo para não pedir senha)
 echo "📦 Atualizando dependências do sistema..."
 if ! command -v git &> /dev/null; then
-    if command -v apt-get &> /dev/null; then
-        sudo apt-get update && sudo apt-get install -y git
-    fi
+    echo "⚠️ Git não instalado. Instale o Git manualmente se precisar de atualizações."
 fi
 
 if command -v pip &> /dev/null; then
