@@ -458,12 +458,58 @@ export default function App({
   const [appVersion, setAppVersion] = useState("Carregando versão...");
   const t = (key: string) => translations[language][key] || key;
 
-  useEffect(() => {
-    fetch("/api/system/version")
-      .then((res) => res.json())
-      .then((data) => setAppVersion(data.version))
-      .catch(() => setAppVersion("Desconhecida"));
-  }, []);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [pendingSettings, setPendingSettings] = useState<any>(null);
+  
+  const [aiChat, setAiChat] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiInput, setAiInput] = useState("");
+  const [aiProvider, setAiProvider] = useState<"local" | "off" | "gemini">(() => {
+    const saved = localStorage.getItem("creeper_ai_provider");
+    return (saved as "local" | "off" | "gemini") || "off";
+  });
+  const [activeCustomAiId, setActiveCustomAiId] = useState<string>(() => localStorage.getItem("creeper_active_custom_ai") || "");
+  const [customAIs, setCustomAIs] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem("creeper_custom_ais");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [
+      { id: "nv_deepseek", name: "DeepSeek R1 (Nvidia)", endpoint: "https://integrate.api.nvidia.com/v1/chat/completions", model: "deepseek-ai/deepseek-r1", apiKey: "" },
+      { id: "groq_33", name: "LLaMA 3.3 (Groq)", endpoint: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile", apiKey: "" },
+      { id: "ollama", name: "Ollama (Local)", endpoint: "http://127.0.0.1:11434/v1/chat/completions", model: "llama3", apiKey: "" }
+    ];
+  });
+  const [showAiCustomConfigModal, setShowAiCustomConfigModal] = useState(false);
+  const [fetchingModelsFor, setFetchingModelsFor] = useState<string | null>(null);
+  const [fetchedModels, setFetchedModels] = useState<{ [id: string]: string[] }>({});
+
+  const [modules, setModules] = useState<{
+    map: boolean;
+    store: boolean;
+    ai: boolean;
+    ai_internet: boolean;
+    ai_memory: boolean;
+    ai_bot: boolean;
+    server_hibernation: boolean;
+  }>(() => {
+    try {
+      const saved = localStorage.getItem("ppc_modules");
+      if (saved) {
+         const parsed = JSON.parse(saved);
+         return {
+            map: parsed.map ?? true,
+            store: parsed.store ?? true,
+            ai: parsed.ai ?? true,
+            ai_internet: parsed.ai_internet ?? true,
+            ai_memory: parsed.ai_memory ?? true,
+            ai_bot: parsed.ai_bot ?? true,
+            server_hibernation: parsed.server_hibernation ?? false
+         };
+      }
+    } catch (e) {}
+    return { map: true, store: true, ai: true, ai_internet: true, ai_memory: true, ai_bot: true, server_hibernation: false };
+  });
 
   const [serverState, setServerState] = useState<ServerState>({
     status: "offline",
@@ -492,62 +538,83 @@ export default function App({
   const [scanningJavas, setScanningJavas] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("servers");
 
+  const queueSettingsUpdate = (updates: any) => {
+    setPendingSettings((prev: any) => ({ ...prev, ...updates }));
+  };
+
   useEffect(() => {
+    fetch("/api/system/version")
+      .then((res) => res.json())
+      .then((data) => setAppVersion(data.version))
+      .catch(() => setAppVersion("Desconhecida"));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then(r => r.json())
+      .then(data => {
+         if (data.settings) {
+            if (data.settings.language) setLanguage(data.settings.language);
+            if (data.settings.theme) setTheme(data.settings.theme);
+            if (data.settings.aiProvider) setAiProvider(data.settings.aiProvider);
+            if (data.settings.activeCustomAiId) setActiveCustomAiId(data.settings.activeCustomAiId);
+            if (data.settings.customAIs) setCustomAIs(data.settings.customAIs);
+            if (data.settings.modules) setModules(data.settings.modules);
+         }
+         setSettingsLoaded(true);
+      })
+      .catch(() => setSettingsLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    if (!settingsLoaded || !pendingSettings) return;
+    const timeout = setTimeout(() => {
+      fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: pendingSettings })
+      }).then(() => setPendingSettings(null));
+    }, 2000);
+    return () => clearTimeout(timeout);
+  }, [pendingSettings, settingsLoaded]);
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
     localStorage.setItem("creeper_lang", language);
     localStorage.setItem("creeper_theme", theme);
     document.documentElement.className = theme;
-    if (settingsLoaded) {
-       saveGlobalSettings({ language, theme });
-    }
+    queueSettingsUpdate({ language, theme });
   }, [language, theme, settingsLoaded]);
 
-  const [aiChat, setAiChat] = useState<
-    { role: "user" | "assistant"; text: string }[]
-  >([]);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiInput, setAiInput] = useState("");
-  const [aiProvider, setAiProvider] = useState<"local" | "off">(
-    () => {
-      const saved = localStorage.getItem("creeper_ai_provider");
-      let val = (saved as "local" | "off") || "off";
-      if (saved === "gemini" || saved === "remote") val = "off";
-      return val;
-    }
-  );
-  const [activeCustomAiId, setActiveCustomAiId] = useState<string>(
-    () => localStorage.getItem("creeper_active_custom_ai") || ""
-  );
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    localStorage.setItem("creeper_custom_ais", JSON.stringify(customAIs));
+    queueSettingsUpdate({ customAIs });
+  }, [customAIs, settingsLoaded]);
 
   useEffect(() => {
+    if (!settingsLoaded) return;
+    localStorage.setItem("creeper_ai_provider", aiProvider);
+    queueSettingsUpdate({ aiProvider });
+  }, [aiProvider, settingsLoaded]);
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
     localStorage.setItem("creeper_active_custom_ai", activeCustomAiId);
-    if (settingsLoaded) {
-       saveGlobalSettings({ activeCustomAiId });
-    }
+    queueSettingsUpdate({ activeCustomAiId });
   }, [activeCustomAiId, settingsLoaded]);
-  
-  const [customAIs, setCustomAIs] = useState<any[]>(() => {
-    try {
-      const saved = localStorage.getItem("creeper_custom_ais");
-      if (saved) return JSON.parse(saved);
-    } catch(e) {}
-    return [
-      { id: "nv_deepseek", name: "DeepSeek R1 (Nvidia)", endpoint: "https://integrate.api.nvidia.com/v1/chat/completions", model: "deepseek-ai/deepseek-r1", apiKey: "" },
-      { id: "groq_33", name: "LLaMA 3.3 (Groq)", endpoint: "https://api.groq.com/openai/v1/chat/completions", model: "llama-3.3-70b-versatile", apiKey: "" },
-      { id: "ollama", name: "Ollama (Local)", endpoint: "http://127.0.0.1:11434/v1/chat/completions", model: "llama3", apiKey: "" }
-    ];
-  });
-  
-  const [showAiCustomConfigModal, setShowAiCustomConfigModal] = useState(false);
-  
-  const [fetchingModelsFor, setFetchingModelsFor] = useState<string | null>(null);
-  const [fetchedModels, setFetchedModels] = useState<{[id: string]: string[]}>({});
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    localStorage.setItem("ppc_modules", JSON.stringify(modules));
+    queueSettingsUpdate({ modules });
+  }, [modules, settingsLoaded]);
 
   const handleFetchModels = async (aiIndex: number) => {
     const ai = customAIs[aiIndex];
-    if (!ai.endpoint) return;
+    if (!ai.endpoint || ai.endpoint === "gemini") return;
     try {
       setFetchingModelsFor(ai.id);
-      
       const res = await fetch("/api/ai/models", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -556,43 +623,20 @@ export default function App({
       if (res.ok) {
         const data = await res.json();
         if (data && data.data && Array.isArray(data.data)) {
-           const modelIds = data.data.map((m: any) => m.id);
-           setFetchedModels(prev => ({...prev, [ai.id]: modelIds}));
+          setFetchedModels(prev => ({ ...prev, [ai.id]: data.data.map((m: any) => m.id) }));
         } else if (data && Array.isArray(data)) {
-           const modelIds = data.map((m: any) => m.id || m.name);
-           setFetchedModels(prev => ({...prev, [ai.id]: modelIds}));
-        } else {
-           alert("Não foi possível processar a lista de models (formato não reconhecido).");
+          setFetchedModels(prev => ({ ...prev, [ai.id]: data.map((m: any) => m.id || m.name) }));
         }
-      } else {
-        const err = await res.json();
-        alert(`Erro na API ao buscar models: ${err.error}`);
       }
-    } catch(e: any) {
-      alert("Erro ao buscar models: " + e.message);
-    } finally {
+    } catch (e) {} finally {
       setFetchingModelsFor(null);
     }
   };
-
-  useEffect(() => {
-    localStorage.setItem("creeper_custom_ais", JSON.stringify(customAIs));
-    if (settingsLoaded) {
-       saveGlobalSettings({ customAIs });
-    }
-  }, [customAIs, settingsLoaded]);
 
   const [pluginDescription, setPluginDescription] = useState("");
   const [isGeneratingPlugin, setIsGeneratingPlugin] = useState(false);
   const [pluginCode, setPluginCode] = useState("");
   const [pluginGenStatus, setPluginGenStatus] = useState("idle");
-  
-  useEffect(() => {
-    localStorage.setItem("creeper_ai_provider", aiProvider);
-    if (settingsLoaded) {
-       saveGlobalSettings({ aiProvider });
-    }
-  }, [aiProvider, settingsLoaded]);
 
   const [isVpsOptimized, setIsVpsOptimized] = useState(true);
   const [storeSearch, setStoreSearch] = useState("");
@@ -675,67 +719,6 @@ export default function App({
   const [cloudBackups, setCloudBackups] = useState<any[]>([]);
   const [showBackups, setShowBackups] = useState(false);
   const [isSyncingRam, setIsSyncingRam] = useState(true);
-  const [modules, setModules] = useState<{
-    map: boolean;
-    store: boolean;
-    ai: boolean;
-    ai_internet: boolean;
-    ai_memory: boolean;
-    ai_bot: boolean;
-    server_hibernation: boolean;
-  }>(() => {
-    try {
-      const saved = localStorage.getItem("ppc_modules");
-      if (saved) {
-         const parsed = JSON.parse(saved);
-         return {
-            map: parsed.map ?? true,
-            store: parsed.store ?? true,
-            ai: parsed.ai ?? true,
-            ai_internet: parsed.ai_internet ?? true,
-            ai_memory: parsed.ai_memory ?? true,
-            ai_bot: parsed.ai_bot ?? true,
-            server_hibernation: parsed.server_hibernation ?? false
-         };
-      }
-    } catch (e) {}
-    return { map: true, store: true, ai: true, ai_internet: true, ai_memory: true, ai_bot: true, server_hibernation: false };
-  });
-
-  const saveGlobalSettings = async (updates: any) => {
-    try {
-      await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settings: updates })
-      });
-    } catch(e) {}
-  };
-
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/settings")
-      .then(r => r.json())
-      .then(data => {
-         if (data.settings) {
-            if (data.settings.language) setLanguage(data.settings.language);
-            if (data.settings.theme) setTheme(data.settings.theme);
-            if (data.settings.aiProvider) setAiProvider(data.settings.aiProvider);
-            if (data.settings.activeCustomAiId) setActiveCustomAiId(data.settings.activeCustomAiId);
-            if (data.settings.customAIs) setCustomAIs(data.settings.customAIs);
-            if (data.settings.modules) setModules(data.settings.modules);
-         }
-         setSettingsLoaded(true);
-      })
-      .catch(() => setSettingsLoaded(true));
-  }, []);
-
-  useEffect(() => {
-    if (!settingsLoaded) return;
-    localStorage.setItem("ppc_modules", JSON.stringify(modules));
-    saveGlobalSettings({ modules });
-  }, [modules, settingsLoaded]);
 
   const isPaperPig = !modules.ai && !modules.map && !modules.store && !modules.server_hibernation && !modules.ai_internet && !modules.ai_memory && !modules.ai_bot;
 
@@ -2177,24 +2160,23 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
   const getStatusBubble = () => {
     switch (serverState.status) {
       case "online":
-        return "bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]";
+        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/20";
       case "starting":
-        return "bg-amber-500/20 text-amber-400 border-amber-500/50 animate-pulse";
+        return "bg-amber-500/10 text-amber-400 border-amber-500/40 animate-pulse";
       case "stopping":
-        return "bg-red-500/20 text-red-400 border-red-500/50";
+        return "bg-red-500/10 text-red-400 border-red-500/40";
       default:
-        return "bg-zinc-800 text-zinc-500 border-zinc-700";
+        return "bg-zinc-800/50 text-zinc-500 border-zinc-700/50 backdrop-blur-sm";
     }
   };
 
   const formatLogLine = (text: string) => {
-    // Regex that stops at whitespace, ANSI escape (\x1B), quotes, or parenthesis
     const urlRegex = /(https?:\/\/[^\s\x1B"'()]+)/g;
     if (!text.match(urlRegex)) return text;
     const parts = text.split(/(https?:\/\/[^\s\x1B"'()]+)/g);
     return parts.map((part, i) => 
       part.match(urlRegex) ? (
-        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline hover:text-blue-300 break-all">
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline hover:text-emerald-300 break-all decoration-emerald-500/30 underline-offset-2">
           {part}
         </a>
       ) : (
@@ -2205,12 +2187,18 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
 
   return (
     <div
-      className={`min-h-screen font-sans selection:bg-emerald-500 selection:text-white transition-all duration-500 ${isPaperPig ? (theme === "dark" ? "bg-[#1E1114] text-pink-50" : "bg-[#fdf2f8] text-pink-950") : (theme === "dark" ? "bg-[#071E14] text-emerald-50" : "bg-zinc-50 text-emerald-950")} ${isHibernating ? "grayscale-[0.8] brightness-50" : ""}`}
+      className={`min-h-screen font-sans selection:bg-emerald-500 selection:text-white transition-all duration-700 ${isPaperPig ? (theme === "dark" ? "bg-[#1E1114] text-pink-50" : "bg-[#fdf2f8] text-pink-950") : (theme === "dark" ? "bg-[#040D09] text-emerald-50" : "bg-zinc-50 text-emerald-950")} ${isHibernating ? "grayscale-[1] brightness-50 contrast-125" : ""}`}
     >
       <div
-        className={`fixed inset-0 creeper-pattern pointer-events-none ${isPaperPig ? "hidden" : ""} ${theme === "light" ? "opacity-[0.02]" : "opacity-05"}`}
+        className={`fixed inset-0 creeper-pattern pointer-events-none ${isPaperPig ? "hidden" : ""} ${theme === "light" ? "opacity-[0.015]" : "opacity-[0.04]"} mix-blend-overlay`}
       />
-      <div className="w-full max-w-[1400px] mx-auto min-h-screen flex flex-col p-4 lg:p-6 relative">
+      
+      {/* Dynamic Background Glow */}
+      {!isPaperPig && theme === "dark" && (
+        <div className="fixed -top-[20%] -left-[10%] w-[50%] h-[50%] bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none" />
+      )}
+
+      <div className="w-full max-w-[1500px] mx-auto min-h-screen flex flex-col p-4 lg:p-8 relative">
         <AnimatePresence>
           {showHibernationModal && (
             <motion.div
@@ -4731,25 +4719,26 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                       <div className="flex items-center gap-2 w-full sm:w-auto">
                         <div className="relative flex-1 sm:flex-none">
                           <select
-                            value={aiProvider === "off" ? "off" : (customAIs.find(a => a.id === activeCustomAiId)?.id || (customAIs.length > 0 ? customAIs[0].id : "off"))}
+                            value={aiProvider === "off" ? "off" : (aiProvider === "gemini" ? "gemini" : (customAIs.find(a => a.id === activeCustomAiId)?.id || (customAIs.length > 0 ? customAIs[0].id : "off")))}
                             onChange={(e) => {
                               const val = e.target.value;
                               if (val === "off") {
                                 setAiProvider("off");
-                                localStorage.setItem("creeper_ai_provider", "off");
+                                setAiChat([]);
+                              } else if (val === "gemini") {
+                                setAiProvider("gemini");
                                 setAiChat([]);
                               } else {
                                 setAiProvider("local");
-                                localStorage.setItem("creeper_ai_provider", "local");
                                 setAiChat([]);
                                 setActiveCustomAiId(val);
-                                localStorage.setItem("creeper_active_custom_ai", val);
                               }
                             }}
-                            className="w-full bg-emerald-950/40 border border-emerald-900 rounded-xl px-4 py-2.5 text-xs font-bold text-emerald-300 outline-none focus:border-emerald-500 max-w-[280px] appearance-none cursor-pointer pr-10 uppercase tracking-wider shadow-inner"
+                            className="w-full bg-emerald-950/40 border border-emerald-900 rounded-xl px-4 py-2.5 text-xs font-bold text-emerald-300 outline-none focus:border-emerald-500 max-w-[280px] appearance-none cursor-pointer pr-10 uppercase tracking-wider shadow-inner backdrop-blur-md"
                           >
                             <option value="off">🔴 IA Desativada</option>
-                            {customAIs.map(ai => <option key={ai.id} value={ai.id}>⚡ {ai.name}</option>)}
+                            <option value="gemini">✨ Gemini (Nativo)</option>
+                            {customAIs.map(ai => <option key={ai.id} value={ai.id}>🤖 {ai.name}</option>)}
                           </select>
                           <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-600 font-bold">▼</div>
                         </div>

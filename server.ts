@@ -139,10 +139,17 @@ async function startServer() {
     },
   };
 
+  const srvConfigCache: Record<string, any> = {};
+
   const getSrvConfig = (id: string) => {
+    if (srvConfigCache[id]) return srvConfigCache[id];
     try {
       const p = getSrvConfigPath(id);
-      if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, "utf-8"));
+      if (fs.existsSync(p)) {
+        const config = JSON.parse(fs.readFileSync(p, "utf-8"));
+        srvConfigCache[id] = config;
+        return config;
+      }
     } catch (e) {}
     return { ...DEFAULT_CONFIG, name: id };
   };
@@ -150,6 +157,7 @@ async function startServer() {
   const saveSrvConfig = (id: string, config: any) => {
     const dir = getServerDir(id);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    srvConfigCache[id] = config;
     fs.writeFileSync(getSrvConfigPath(id), JSON.stringify(config, null, 2));
   };
 
