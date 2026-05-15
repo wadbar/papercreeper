@@ -496,27 +496,34 @@ export default function App({
     localStorage.setItem("creeper_lang", language);
     localStorage.setItem("creeper_theme", theme);
     document.documentElement.className = theme;
-  }, [language, theme]);
+    if (settingsLoaded) {
+       saveGlobalSettings({ language, theme });
+    }
+  }, [language, theme, settingsLoaded]);
 
   const [aiChat, setAiChat] = useState<
     { role: "user" | "assistant"; text: string }[]
   >([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiInput, setAiInput] = useState("");
-  const [aiProvider, setAiProvider] = useState<"remote" | "local" | "off" | "gemini">(
+  const [aiProvider, setAiProvider] = useState<"local" | "off">(
     () => {
       const saved = localStorage.getItem("creeper_ai_provider");
-      let val = (saved as "remote" | "local" | "off" | "gemini") || "gemini";
-      if (val === "remote") val = "gemini";
+      let val = (saved as "local" | "off") || "off";
+      if (saved === "gemini" || saved === "remote") val = "off";
       return val;
     }
-  );
-  const [aiKeysList, setAiKeysList] = useState<string>(
-    () => localStorage.getItem("creeper_ai_keys_list") || ""
   );
   const [activeCustomAiId, setActiveCustomAiId] = useState<string>(
     () => localStorage.getItem("creeper_active_custom_ai") || ""
   );
+
+  useEffect(() => {
+    localStorage.setItem("creeper_active_custom_ai", activeCustomAiId);
+    if (settingsLoaded) {
+       saveGlobalSettings({ activeCustomAiId });
+    }
+  }, [activeCustomAiId, settingsLoaded]);
   
   const [customAIs, setCustomAIs] = useState<any[]>(() => {
     try {
@@ -570,7 +577,10 @@ export default function App({
 
   useEffect(() => {
     localStorage.setItem("creeper_custom_ais", JSON.stringify(customAIs));
-  }, [customAIs]);
+    if (settingsLoaded) {
+       saveGlobalSettings({ customAIs });
+    }
+  }, [customAIs, settingsLoaded]);
 
   const [pluginDescription, setPluginDescription] = useState("");
   const [isGeneratingPlugin, setIsGeneratingPlugin] = useState(false);
@@ -579,7 +589,10 @@ export default function App({
   
   useEffect(() => {
     localStorage.setItem("creeper_ai_provider", aiProvider);
-  }, [aiProvider]);
+    if (settingsLoaded) {
+       saveGlobalSettings({ aiProvider });
+    }
+  }, [aiProvider, settingsLoaded]);
 
   const [isVpsOptimized, setIsVpsOptimized] = useState(true);
   const [storeSearch, setStoreSearch] = useState("");
@@ -689,9 +702,40 @@ export default function App({
     return { map: true, store: true, ai: true, ai_internet: true, ai_memory: true, ai_bot: true, server_hibernation: false };
   });
 
+  const saveGlobalSettings = async (updates: any) => {
+    try {
+      await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: updates })
+      });
+    } catch(e) {}
+  };
+
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
   useEffect(() => {
+    fetch("/api/settings")
+      .then(r => r.json())
+      .then(data => {
+         if (data.settings) {
+            if (data.settings.language) setLanguage(data.settings.language);
+            if (data.settings.theme) setTheme(data.settings.theme);
+            if (data.settings.aiProvider) setAiProvider(data.settings.aiProvider);
+            if (data.settings.activeCustomAiId) setActiveCustomAiId(data.settings.activeCustomAiId);
+            if (data.settings.customAIs) setCustomAIs(data.settings.customAIs);
+            if (data.settings.modules) setModules(data.settings.modules);
+         }
+         setSettingsLoaded(true);
+      })
+      .catch(() => setSettingsLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
     localStorage.setItem("ppc_modules", JSON.stringify(modules));
-  }, [modules]);
+    saveGlobalSettings({ modules });
+  }, [modules, settingsLoaded]);
 
   const isPaperPig = !modules.ai && !modules.map && !modules.store && !modules.server_hibernation && !modules.ai_internet && !modules.ai_memory && !modules.ai_bot;
 
@@ -1928,9 +1972,9 @@ export default function App({
     setAiLoading(true);
 
     try {
-      let keysArray = aiKeysList.split(",").map(k => k.trim()).filter(k => k.length > 5);
-      let activeEndpoint = "gemini";
-      let activeModel = "gemini-2.5-flash";
+      let keysArray: string[] = [];
+      let activeEndpoint = "http://127.0.0.1:11434/v1/chat/completions";
+      let activeModel = "llama3";
       if (aiProvider === "local") {
         const foundAi = customAIs.find(a => a.id === activeCustomAiId) || customAIs[0];
         if (foundAi) {
@@ -2038,9 +2082,9 @@ Por favor, explique ou detalhe esse resultado para mim de forma natural e amigá
     setPluginCode("");
 
     try {
-      let keysArray = aiKeysList.split(",").map(k => k.trim()).filter(k => k.length > 5);
-      let activeGenEndpoint = "gemini";
-      let activeGenModel = "gemini-2.5-flash";
+      let keysArray: string[] = [];
+      let activeGenEndpoint = "http://127.0.0.1:11434/v1/chat/completions";
+      let activeGenModel = "llama3";
       if (aiProvider === "local") {
         const foundAi = customAIs.find(a => a.id === activeCustomAiId) || customAIs[0];
         if (foundAi) {
@@ -2245,16 +2289,16 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                 
                 <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
                   {customAIs.map((ai, index) => (
-                    <div key={ai.id} className="bg-black/40 border border-emerald-900/50 p-4 rounded-xl space-y-3 relative group">
+                    <div key={ai.id} className="bg-black/40 border border-emerald-900/50 p-4 pt-10 rounded-xl space-y-3 relative group">
                       <button 
                         onClick={() => {
                            const newAis = [...customAIs];
                            newAis.splice(index, 1);
                            setCustomAIs(newAis);
                         }} 
-                        className="absolute top-2 right-2 p-2 bg-red-900/50 text-red-500 rounded-lg hover:bg-red-800 transition-colors opacity-0 group-hover:opacity-100"
+                        className="absolute top-2 right-2 px-3 py-1 bg-red-900/20 text-red-500 rounded-lg border border-red-900/30 hover:bg-red-900/80 hover:text-white transition-all flex items-center gap-2 text-xs font-bold"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={14} /> Excluir
                       </button>
                       <div className="flex flex-col md:flex-row gap-3">
                         <div className="flex-1">
@@ -2280,25 +2324,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                               {fetchingModelsFor === ai.id ? "Buscando..." : "Buscar Modelos"}
                             </button>
                           </div>
-                          {fetchedModels[ai.id] && fetchedModels[ai.id].length > 0 && ai.endpoint !== "gemini" ? (
-                            <select 
-                              value={ai.model} 
-                              onChange={(e) => {
-                                 const newAis = [...customAIs];
-                                 const selectedModel = e.target.value;
-                                 newAis[index].model = selectedModel;
-                                 if (!newAis[index].name) {
-                                    newAis[index].name = selectedModel;
-                                 }
-                                 setCustomAIs(newAis);
-                              }}
-                              className="w-full bg-black/60 border border-emerald-900/50 rounded-lg px-3 py-2 text-emerald-100 text-sm outline-none focus:border-emerald-500" 
-                            >
-                              {fetchedModels[ai.id].map(mId => (
-                                 <option key={mId} value={mId}>{mId}</option>
-                              ))}
-                            </select>
-                          ) : (
+                          <div>
                             <input 
                               value={ai.model} 
                               onChange={(e) => {
@@ -2308,8 +2334,16 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                               }}
                               className="w-full bg-black/60 border border-emerald-900/50 rounded-lg px-3 py-2 text-emerald-100 text-sm outline-none focus:border-emerald-500" 
                               placeholder="Nome do modelo. Ex: gemini-2.5-flash"
+                              list={`models-${ai.id}`}
                             />
-                          )}
+                            {fetchedModels[ai.id] && fetchedModels[ai.id].length > 0 && ai.endpoint !== "gemini" && (
+                              <datalist id={`models-${ai.id}`}>
+                                {fetchedModels[ai.id].map(mId => (
+                                   <option key={mId} value={mId} />
+                                ))}
+                              </datalist>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="flex flex-col gap-3">
@@ -4697,16 +4731,12 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                       <div className="flex items-center gap-2 w-full sm:w-auto">
                         <div className="relative flex-1 sm:flex-none">
                           <select
-                            value={aiProvider === "off" ? "off" : (aiProvider === "gemini" ? "gemini" : (customAIs.find(a => a.id === activeCustomAiId)?.id || (customAIs.length > 0 ? customAIs[0].id : "off")))}
+                            value={aiProvider === "off" ? "off" : (customAIs.find(a => a.id === activeCustomAiId)?.id || (customAIs.length > 0 ? customAIs[0].id : "off"))}
                             onChange={(e) => {
                               const val = e.target.value;
                               if (val === "off") {
                                 setAiProvider("off");
                                 localStorage.setItem("creeper_ai_provider", "off");
-                                setAiChat([]);
-                              } else if (val === "gemini") {
-                                setAiProvider("gemini");
-                                localStorage.setItem("creeper_ai_provider", "gemini");
                                 setAiChat([]);
                               } else {
                                 setAiProvider("local");
@@ -4719,7 +4749,6 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                             className="w-full bg-emerald-950/40 border border-emerald-900 rounded-xl px-4 py-2.5 text-xs font-bold text-emerald-300 outline-none focus:border-emerald-500 max-w-[280px] appearance-none cursor-pointer pr-10 uppercase tracking-wider shadow-inner"
                           >
                             <option value="off">🔴 IA Desativada</option>
-                            <option value="gemini">🟢 Gemini Integrado (Cloud)</option>
                             {customAIs.map(ai => <option key={ai.id} value={ai.id}>⚡ {ai.name}</option>)}
                           </select>
                           <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-600 font-bold">▼</div>
@@ -4735,21 +4764,6 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                           <span className="sm:hidden">APIs</span>
                         </button>
                       </div>
-
-                      {aiProvider === "gemini" && (
-                        <div className="w-full sm:w-auto px-1 sm:px-0 mt-2 sm:mt-0">
-                          <input
-                            type="password"
-                            placeholder="Gemini API Key..."
-                            value={aiKeysList}
-                            onChange={(e) => {
-                              setAiKeysList(e.target.value);
-                              localStorage.setItem("creeper_ai_keys_list", e.target.value);
-                            }}
-                            className="w-full sm:w-[200px] bg-emerald-950/20 border border-emerald-900/50 rounded-xl px-3 py-2 text-xs text-emerald-100 outline-none focus:border-emerald-500"
-                          />
-                        </div>
-                      )}
                       
                       <div className="flex items-center w-full sm:w-auto gap-3">
                         <div className="hidden md:flex items-center">
@@ -4922,7 +4936,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                                const res = await fetch("/api/bot/spawn", {
                                  method: "POST",
                                  headers: { "Content-Type": "application/json" },
-                                 body: JSON.stringify({ serverId: currentServerId, botName: "AjudanteIA", apiKey: aiProvider === "gemini" && aiKeysList ? aiKeysList.split(",")[0].trim() : "" })
+                                 body: JSON.stringify({ serverId: currentServerId, botName: "AjudanteIA", apiKey: customAIs.find(a => a.id === activeCustomAiId)?.apiKey || "" })
                                });
                                if (res.ok) alert("Ajudante IA ativado e entrando no servidor! Verifique o console.");
                              }}

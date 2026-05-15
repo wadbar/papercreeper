@@ -1163,7 +1163,7 @@ async function startServer() {
          keysToTry.push(envKey);
       }
 
-      const willForceGeminiStream = provider === "gemini" || endpoint === "gemini" || modelName === "gemini-3.1-flash-lite" || modelName === "gemini-2.5-flash" || modelName === "gemini-2.0-flash";
+      const willForceGeminiStream = provider === "gemini" || endpoint === "gemini";
       if (keysToTry.length === 0 && willForceGeminiStream) {
         res.write(`data: ${JSON.stringify({ error: "Nenhuma API Key configurada. Configure no menu de IA ou nas Configurações." })}\n\n`);
         return res.end();
@@ -1219,7 +1219,7 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
       res.setHeader("Connection", "keep-alive");
 
       const isLocalOrCustom = provider === "local" || provider === "custom";
-      const forceGemini = provider === "gemini" || endpoint === "gemini" || modelName === "gemini-3.1-flash-lite" || modelName === "gemini-2.5-flash" || modelName === "gemini-2.0-flash";
+      const forceGemini = provider === "gemini" || endpoint === "gemini";
       const isRemoteOpenAICompat = !forceGemini && (provider === "remote" || (!provider && !isGeminiKey) || (currentKey && !isGeminiKey && provider !== "gemini"));
 
       if (!forceGemini && (isLocalOrCustom || isRemoteOpenAICompat)) {
@@ -1345,7 +1345,7 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
          keysToTry.push(envKey);
       }
 
-      const willForceGeminiRest = provider === "gemini" || endpoint === "gemini" || modelName === "gemini-3.1-flash-lite" || modelName === "gemini-2.5-flash" || modelName === "gemini-2.0-flash";
+      const willForceGeminiRest = provider === "gemini" || endpoint === "gemini";
       if (keysToTry.length === 0 && willForceGeminiRest) {
         throw new Error("Nenhuma API Key configurada. Configure no menu de IA ou nas Configurações.");
       }
@@ -1391,7 +1391,7 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
       let text = "";
 
       const isLocalOrCustom = provider === "local" || provider === "custom";
-      const forceGemini = provider === "gemini" || endpoint === "gemini" || modelName === "gemini-3.1-flash-lite" || modelName === "gemini-2.5-flash" || modelName === "gemini-2.0-flash";
+      const forceGemini = provider === "gemini" || endpoint === "gemini";
       const isRemoteOpenAICompat = !forceGemini && (provider === "remote" || (!provider && !isGeminiKey) || (currentKey && !isGeminiKey && provider !== "gemini"));
 
       if (!forceGemini && (isLocalOrCustom || isRemoteOpenAICompat)) {
@@ -1715,6 +1715,37 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
     config.store = store;
     saveSrvConfig(serverId, config);
     res.json({ success: true });
+  });
+
+  const GLOBAL_DATA_DIR = path.join(process.cwd(), "data");
+  const GLOBAL_CONFIG_FILE = path.join(GLOBAL_DATA_DIR, "panel_config.json");
+
+  app.get("/api/settings", (req, res) => {
+    if (!fs.existsSync(GLOBAL_CONFIG_FILE)) {
+      return res.json({ settings: null });
+    }
+    try {
+      const db = JSON.parse(fs.readFileSync(GLOBAL_CONFIG_FILE, "utf-8"));
+      res.json({ settings: db });
+    } catch(e) {
+      res.json({ settings: null });
+    }
+  });
+
+  app.post("/api/settings", (req, res) => {
+    const { settings } = req.body;
+    if (!settings) return res.json({ success: false });
+    try {
+      if (!fs.existsSync(GLOBAL_DATA_DIR)) fs.mkdirSync(GLOBAL_DATA_DIR, { recursive: true });
+      let current = {};
+      if (fs.existsSync(GLOBAL_CONFIG_FILE)) {
+        try { current = JSON.parse(fs.readFileSync(GLOBAL_CONFIG_FILE, "utf-8")); } catch(e){}
+      }
+      fs.writeFileSync(GLOBAL_CONFIG_FILE, JSON.stringify({ ...current, ...settings }, null, 2));
+      res.json({ success: true });
+    } catch(e) {
+      res.json({ success: false, error: String(e) });
+    }
   });
 
   app.get("/api/servers", (req, res) => {
