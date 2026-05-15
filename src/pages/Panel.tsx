@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
+import { withResilience } from "../services/resilience";
+import { logMetric, measurePerformanceAsync } from "../services/telemetry";
 import {
   AreaChart,
   Area,
@@ -2266,7 +2268,11 @@ Por favor, explique ou detalhe esse resultado para mim de forma natural e amigá
 
 Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Retorne APENAS o código encapsulado num bloco \`\`\`skript ... \`\`\`. Use blocos de command, on event, etc conforme necessário e não utilize ferramentas [ACTION:...] aqui! Só envie o código, sem explicações extras.`;
       
-      const result = await askAI(prompt, "Skript Plugin Generation Mode", currentServerId, effectiveGenProvider, activeGenEndpoint, [], activeGenModel, keysArray, modules);
+      const result = await measurePerformanceAsync("plugin-generation", async () =>
+        await withResilience(async () =>
+          await askAI(prompt, "Skript Plugin Generation Mode", currentServerId, effectiveGenProvider, activeGenEndpoint, [], activeGenModel, keysArray, modules)
+        , { text: "Erro ao gerar plugin. Tente novamente." })
+      );
       
       const rawText = result.text || "";
       const codeMatch = rawText.match(/```(?:skript|sk|yaml)?\n([\s\S]*?)```/);
@@ -4115,7 +4121,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                        <h3 className="text-xl font-black text-white tracking-widest uppercase italic mb-6">Ações Rápidas</h3>
                        <div className="grid grid-cols-2 gap-4">
                           {[
-                            { label: "Otimizar VPS", icon: <Zap />, color: "emerald", action: handleOptimizeSystem },
+                            { label: "Otimizar", icon: <Zap />, color: "emerald", action: handleOptimizeSystem },
                             { label: "Novo Server", icon: <Plus />, color: "sky", action: () => { setShowCreateModal(true); setNewServerConfig({ name: "", ram: 4, type: "spigot", version: "1.21.1", usePlayit: true, minRam: 1, url: "" }); } },
                             { label: "Diagnóstico", icon: <Activity />, color: "amber", action: () => setActiveTab("system") },
                             { label: "Sair", icon: <Power />, color: "rose", action: () => window.location.reload() },
