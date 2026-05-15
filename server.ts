@@ -1276,7 +1276,7 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
                 const { value, done: doneReading } = await reader.read();
                 done = doneReading;
                 if (value) {
-                   res.write(decoder.decode(value));
+                   res.write(decoder.decode(value, { stream: true }));
                 }
              }
           }
