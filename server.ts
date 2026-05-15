@@ -1145,8 +1145,8 @@ async function startServer() {
       const sId = serverId || "default";
 
       let keysToTry = [];
-      if (apiKeys && Array.isArray(apiKeys) && apiKeys.length > 0) {
-        keysToTry = [...apiKeys];
+      if (apiKeys && Array.isArray(apiKeys)) {
+        keysToTry = apiKeys.filter(k => k && k.trim() !== "");
       }
       
       const envKey = process.env.UNIVERSAL_API_KEY || process.env.GEMINI_API_KEY || "";
@@ -1154,8 +1154,8 @@ async function startServer() {
          keysToTry.push(envKey);
       }
 
-      if (provider !== "local" && keysToTry.length === 0) {
-        res.write(JSON.stringify({ error: "Nenhuma API Key configurada. Configure no menu de IA ou nas Configurações." }));
+      if (keysToTry.length === 0 && !((provider === "local" && (!endpoint || endpoint.includes("127.0.") || endpoint.includes("localhost"))) || (endpoint && (endpoint.includes("127.0.") || endpoint.includes("localhost"))))) {
+        res.write(`data: ${JSON.stringify({ error: "Nenhuma API Key configurada. Configure no menu de IA ou nas Configurações." })}\n\n`);
         return res.end();
       }
 
@@ -1209,9 +1209,10 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
       res.setHeader("Connection", "keep-alive");
 
       const isLocalOrCustom = provider === "local" || provider === "custom";
-      const isRemoteOpenAICompat = provider === "remote" || (!provider && !isGeminiKey) || (currentKey && !isGeminiKey && provider !== "gemini");
+      const forceGemini = provider === "gemini" || endpoint === "gemini" || modelName === "gemini-3.1-flash-lite";
+      const isRemoteOpenAICompat = !forceGemini && (provider === "remote" || (!provider && !isGeminiKey) || (currentKey && !isGeminiKey && provider !== "gemini"));
 
-      if (isLocalOrCustom || isRemoteOpenAICompat) {
+      if (!forceGemini && (isLocalOrCustom || isRemoteOpenAICompat)) {
         let aiMode = provider || "remote";
         if (!provider && !isGeminiKey) aiMode = "remote";
         
@@ -1295,7 +1296,13 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
            req.on("close", () => { /* cannot easily abort genai sdk but client disconnected */ });
 
            for await (const chunk of stream) {
-              res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk.text } }] })}\n\n`);
+              try {
+                if (chunk.text) {
+                  res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk.text } }] })}\n\n`);
+                }
+              } catch(e) {
+                 // Ignore chunk.text exception if safety issue triggers it
+              }
            }
          } catch(e: any) {
            res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
@@ -1315,8 +1322,8 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
       const sId = serverId || "default";
 
       let keysToTry = [];
-      if (apiKeys && Array.isArray(apiKeys) && apiKeys.length > 0) {
-        keysToTry = [...apiKeys];
+      if (apiKeys && Array.isArray(apiKeys)) {
+        keysToTry = apiKeys.filter(k => k && k.trim() !== "");
       }
       
       const envKey = process.env.UNIVERSAL_API_KEY || process.env.GEMINI_API_KEY || "";
@@ -1324,7 +1331,7 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
          keysToTry.push(envKey);
       }
 
-      if (provider !== "local" && keysToTry.length === 0) {
+      if (keysToTry.length === 0 && !((provider === "local" && (!endpoint || endpoint.includes("127.0.") || endpoint.includes("localhost"))) || (endpoint && (endpoint.includes("127.0.") || endpoint.includes("localhost"))))) {
         throw new Error("Nenhuma API Key configurada. Configure no menu de IA ou nas Configurações.");
       }
 
@@ -1369,9 +1376,10 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
       let text = "";
 
       const isLocalOrCustom = provider === "local" || provider === "custom";
-      const isRemoteOpenAICompat = provider === "remote" || (!provider && !isGeminiKey) || (currentKey && !isGeminiKey && provider !== "gemini");
+      const forceGemini = provider === "gemini" || endpoint === "gemini" || modelName === "gemini-3.1-flash-lite";
+      const isRemoteOpenAICompat = !forceGemini && (provider === "remote" || (!provider && !isGeminiKey) || (currentKey && !isGeminiKey && provider !== "gemini"));
 
-      if (isLocalOrCustom || isRemoteOpenAICompat) {
+      if (!forceGemini && (isLocalOrCustom || isRemoteOpenAICompat)) {
         let aiMode = provider || "remote";
         if (!provider && !isGeminiKey) aiMode = "remote";
 

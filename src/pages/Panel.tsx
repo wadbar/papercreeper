@@ -503,10 +503,10 @@ export default function App({
   >([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiInput, setAiInput] = useState("");
-  const [aiProvider, setAiProvider] = useState<"remote" | "local" | "off">(
+  const [aiProvider, setAiProvider] = useState<"remote" | "local" | "off" | "gemini">(
     () => {
       const saved = localStorage.getItem("creeper_ai_provider");
-      return (saved as "remote" | "local" | "off") || "remote";
+      return (saved as "remote" | "local" | "off" | "gemini") || "gemini";
     }
   );
   const [aiKeysList, setAiKeysList] = useState<string>(
@@ -2224,6 +2224,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                 
                 <div className="flex flex-wrap gap-2 mb-4">
                   <span className="text-[10px] text-emerald-500 font-bold uppercase w-full">Adicionar Rápido:</span>
+                  <button onClick={() => setCustomAIs([...customAIs, { id: "gemini_" + Date.now(), name: "Gemini (Google)", endpoint: "gemini", model: "gemini-3.1-flash-lite", apiKey: "" }])} className="bg-emerald-900/40 hover:bg-emerald-800 text-emerald-300 text-[10px] px-3 py-1 rounded">Gemini</button>
                   <button onClick={() => setCustomAIs([...customAIs, { id: "ollama_" + Date.now(), name: "Ollama (Local)", endpoint: "http://127.0.0.1:11434/v1/chat/completions", model: "llama3", apiKey: "" }])} className="bg-emerald-900/40 hover:bg-emerald-800 text-emerald-300 text-[10px] px-3 py-1 rounded">Ollama</button>
                   <button onClick={() => setCustomAIs([...customAIs, { id: "lmstudio_" + Date.now(), name: "LM Studio (Local)", endpoint: "http://127.0.0.1:1234/v1/chat/completions", model: "local-model", apiKey: "lm-studio" }])} className="bg-emerald-900/40 hover:bg-emerald-800 text-emerald-300 text-[10px] px-3 py-1 rounded">LM Studio</button>
                   <button onClick={() => setCustomAIs([...customAIs, { id: "nvidia_" + Date.now(), name: "Nvidia NIM", endpoint: "https://integrate.api.nvidia.com/v1/chat/completions", model: "deepseek-ai/deepseek-r1", apiKey: "" }])} className="bg-emerald-900/40 hover:bg-emerald-800 text-emerald-300 text-[10px] px-3 py-1 rounded">Nvidia NIM</button>
@@ -4684,14 +4685,14 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                       <div className="flex items-center gap-2 w-full sm:w-auto">
                         <div className="relative flex-1 sm:flex-none">
                           <select
-                            value={aiProvider === "off" ? "off" : (aiProvider === "remote" ? "gemini" : (customAIs.find(a => a.endpoint === aiEndpoint && a.model === aiLocalModel)?.id || customAIs[0]?.id || "local"))}
+                            value={aiProvider === "off" ? "off" : ((aiProvider === "remote" || aiProvider === "gemini") ? "gemini" : (customAIs.find(a => a.endpoint === aiEndpoint && a.model === aiLocalModel)?.id || customAIs[0]?.id || "local"))}
                             onChange={(e) => {
                               const val = e.target.value;
                               if (val === "off") {
                                 setAiProvider("off");
                                 setAiChat([]);
                               } else if (val === "gemini") {
-                                setAiProvider("remote");
+                                setAiProvider("gemini");
                                 setAiChat([]);
                               } else {
                                 setAiProvider("local");

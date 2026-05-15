@@ -50,23 +50,33 @@ export const askAI = async (
         done = doneReading;
         if (value) {
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-          for (const line of lines) {
-             if (line.trim().startsWith("data: ")) {
-                const dataStr = line.trim().substring(6).trim();
-                if (dataStr === "[DONE]") continue;
-                try {
-                   const data = JSON.parse(dataStr);
-                   if (data.error) { const errText = typeof data.error === 'string' ? data.error : JSON.stringify(data.error); fullText += '\n❌ Erro: ' + errText; onChunk(fullText); break; }
-                   const content = data.choices ? (data.choices[0].delta?.content || "") : "";
-                   if (content) {
-                      fullText += content;
-                      onChunk(fullText);
-                   }
-                } catch(e) {}
-             }
-          }
+        }
+        
+        if (done) {
+           buffer += decoder.decode();
+           if (buffer.length > 0) {
+              buffer += "\n"; // Force process last line
+           }
+        }
+        
+        if (buffer.includes("\n")) {
+           const lines = buffer.split("\n");
+           buffer = lines.pop() || "";
+           for (const line of lines) {
+              if (line.trim().startsWith("data: ")) {
+                 const dataStr = line.trim().substring(6).trim();
+                 if (dataStr === "[DONE]") continue;
+                 try {
+                    const data = JSON.parse(dataStr);
+                    if (data.error) { const errText = typeof data.error === 'string' ? data.error : JSON.stringify(data.error); fullText += '\n❌ Erro: ' + errText; onChunk(fullText); break; }
+                    const content = data.choices ? (data.choices[0].delta?.content || "") : "";
+                    if (content) {
+                       fullText += content;
+                       onChunk(fullText);
+                    }
+                 } catch(e) {}
+              }
+           }
         }
       }
       
