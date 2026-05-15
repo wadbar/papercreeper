@@ -1116,9 +1116,18 @@ async function startServer() {
       const { endpoint, apiKey } = req.body;
       if (!endpoint) return res.status(400).json({ error: "Endpoint não fornecido." });
       
-      const url = new URL(endpoint);
-      let modelsUrl = endpoint.replace("/chat/completions", "/models");
-      if (modelsUrl === endpoint) {
+      if (endpoint === "gemini") {
+         return res.json({ data: [{ id: "gemini-3.1-flash-lite" }, { id: "gemini-2.5-flash" }, { id: "gemini-2.0-flash" }]});
+      }
+      
+      let finalEndpoint = endpoint;
+      if (!finalEndpoint.startsWith("http://") && !finalEndpoint.startsWith("https://")) {
+         finalEndpoint = "http://" + finalEndpoint;
+      }
+      
+      const url = new URL(finalEndpoint);
+      let modelsUrl = finalEndpoint.replace("/chat/completions", "/models");
+      if (modelsUrl === finalEndpoint) {
           modelsUrl = url.origin + "/v1/models"; 
       }
       
@@ -1221,6 +1230,10 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
         let targetEndpoint = endpoint || "http://127.0.0.1:11434/v1/chat/completions";
         let model = modelName || "llama3";
         
+        if (targetEndpoint && !targetEndpoint.startsWith("http://") && !targetEndpoint.startsWith("https://")) {
+            targetEndpoint = "http://" + targetEndpoint;
+        }
+        
         if (aiMode === "remote" && currentKey) {
            targetEndpoint = "https://api.openai.com/v1/chat/completions";
            model = modelName || "gpt-4o-mini";
@@ -1286,7 +1299,7 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
               }));
            
            const stream = await ai.models.generateContentStream({
-             model: "gemini-2.5-flash",
+             model: modelName && modelName.startsWith("gemini") ? modelName : "gemini-2.5-flash",
              contents: historyFormatted,
              config: {
                systemInstruction: systemInstruction,
@@ -1390,6 +1403,10 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
         let model = modelName || "llama3";
         const currentKey = keysToTry.length > 0 ? keysToTry[0] : "";
 
+        if (targetEndpoint && !targetEndpoint.startsWith("http://") && !targetEndpoint.startsWith("https://")) {
+            targetEndpoint = "http://" + targetEndpoint;
+        }
+
         if (aiMode === "remote" && currentKey) {
            targetEndpoint = "https://api.openai.com/v1/chat/completions";
            model = modelName || "gpt-4o-mini";
@@ -1451,7 +1468,7 @@ Exemplo: "Deixe-me procurar isso: <call:PESQUISAR>mcMMO setup</call>"
           formattedHistory.push({ role: "user", parts: [{ text: msg }] });
 
           const result = await localAi.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: modelName && modelName.startsWith("gemini") ? modelName : "gemini-2.5-flash",
             contents: formattedHistory,
             config: {
               systemInstruction: systemInstruction,
