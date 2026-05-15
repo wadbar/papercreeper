@@ -63,13 +63,18 @@ export const askAI = async (
            const lines = buffer.split("\n");
            buffer = lines.pop() || "";
            for (const line of lines) {
+              let dataStr = "";
               if (line.trim().startsWith("data: ")) {
-                 const dataStr = line.trim().substring(6).trim();
-                 if (dataStr === "[DONE]") continue;
+                 dataStr = line.trim().substring(6).trim();
+              } else if (line.trim().startsWith("{") && line.trim().endsWith("}")) {
+                 dataStr = line.trim();
+              }
+              if (dataStr === "[DONE]") continue;
+              if (dataStr) {
                  try {
                     const data = JSON.parse(dataStr);
                     if (data.error) { const errText = typeof data.error === 'string' ? data.error : JSON.stringify(data.error); fullText += '\n❌ Erro: ' + errText; onChunk(fullText); break; }
-                    const content = data.choices ? (data.choices[0].delta?.content || "") : "";
+                    const content = data.choices ? (data.choices[0].delta?.content || data.choices[0].message?.content || "") : "";
                     if (content) {
                        fullText += content;
                        onChunk(fullText);

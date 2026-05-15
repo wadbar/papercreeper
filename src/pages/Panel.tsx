@@ -2008,7 +2008,7 @@ Por favor, explique ou detalhe esse resultado para mim de forma natural e amigá
       } else if (!firstResult.text) {
         setAiChat((prev) => {
            const n = [...prev];
-           n[n.length - 1].text = "Não entendi bem, pode repetir? (｡•́︿•̀｡)";
+           n[n.length - 1].text = "❌ Sem resposta da IA. Verifique as configurações (API Key, URL, Servidor Local).";
            return n;
         });
       }
@@ -4686,25 +4686,27 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                       <div className="flex items-center gap-2 w-full sm:w-auto">
                         <div className="relative flex-1 sm:flex-none">
                           <select
-                            value={aiProvider === "off" ? "off" : ((aiProvider === "remote" || aiProvider === "gemini") ? "gemini" : (customAIs.find(a => a.endpoint === aiEndpoint && a.model === aiLocalModel)?.id || customAIs[0]?.id || "local"))}
+                            value={aiProvider === "off" ? "off" : (aiProvider === "gemini" ? "gemini" : (customAIs.find(a => a.endpoint === aiEndpoint && a.model === aiLocalModel)?.id || (customAIs.length > 0 ? customAIs[0].id : "off")))}
                             onChange={(e) => {
                               const val = e.target.value;
                               if (val === "off") {
                                 setAiProvider("off");
+                                localStorage.setItem("creeper_ai_provider", "off");
                                 setAiChat([]);
                               } else if (val === "gemini") {
                                 setAiProvider("gemini");
+                                localStorage.setItem("creeper_ai_provider", "gemini");
                                 setAiChat([]);
                               } else {
                                 setAiProvider("local");
+                                localStorage.setItem("creeper_ai_provider", "local");
                                 setAiChat([]);
                                 const selectedAi = customAIs.find(ai => ai.id === val);
                                 if (selectedAi) {
                                   setAiEndpoint(selectedAi.endpoint);
                                   setAiLocalModel(selectedAi.model);
-                                  if (selectedAi.apiKey) {
-                                    // Do not save this to local storage to avoid overwriting universal keys
-                                  }
+                                  localStorage.setItem("creeper_ai_endpoint", selectedAi.endpoint);
+                                  localStorage.setItem("creeper_ai_model", selectedAi.model);
                                 }
                               }
                             }}
@@ -4727,6 +4729,21 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                           <span className="sm:hidden">APIs</span>
                         </button>
                       </div>
+
+                      {aiProvider === "gemini" && (
+                        <div className="w-full sm:w-auto px-1 sm:px-0 mt-2 sm:mt-0">
+                          <input
+                            type="password"
+                            placeholder="Gemini API Key..."
+                            value={aiKeysList}
+                            onChange={(e) => {
+                              setAiKeysList(e.target.value);
+                              localStorage.setItem("creeper_ai_keys_list", e.target.value);
+                            }}
+                            className="w-full sm:w-[200px] bg-emerald-950/20 border border-emerald-900/50 rounded-xl px-3 py-2 text-xs text-emerald-100 outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                      )}
                       
                       <div className="flex items-center w-full sm:w-auto gap-3">
                         <div className="hidden md:flex items-center">
@@ -4899,7 +4916,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                                const res = await fetch("/api/bot/spawn", {
                                  method: "POST",
                                  headers: { "Content-Type": "application/json" },
-                                 body: JSON.stringify({ serverId: currentServerId, botName: "AjudanteIA", apiKey: aiProvider === "remote" && aiKeysList ? aiKeysList.split(",")[0].trim() : "" })
+                                 body: JSON.stringify({ serverId: currentServerId, botName: "AjudanteIA", apiKey: aiProvider === "gemini" && aiKeysList ? aiKeysList.split(",")[0].trim() : "" })
                                });
                                if (res.ok) alert("Ajudante IA ativado e entrando no servidor! Verifique o console.");
                              }}
