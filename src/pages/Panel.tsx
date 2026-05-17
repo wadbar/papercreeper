@@ -2,13 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { withResilience } from "../services/resilience";
 import { logMetric, measurePerformanceAsync } from "../services/telemetry";
 import { QuickActions } from "../components/QuickActions";
-import { DashStats } from "../components/DashStats";
-import { ServerList } from "../components/ServerList";
-import { ChatWindow } from "../components/ChatWindow";
-import { AIBrainMapper } from "../components/AIBrainMapper";
-import { ServerConsole } from "../components/ServerConsole";
 import { FileManager } from "../components/FileManager";
-import { Brain, ArrowRight, Zap, Square as SquareIcon } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -24,6 +18,7 @@ import {
   Square,
   Terminal,
   Settings,
+  Settings2,
   Server,
   Users,
   Cpu,
@@ -99,7 +94,6 @@ import { askAI } from "../services/geminiService";
 import { AIBrainMapper } from "../components/blocks/AIBrainMapper";
 import { ChatWindow } from "../components/blocks/ChatWindow";
 import { ServerConsole } from "../components/blocks/ServerConsole";
-import { FileManager } from "../components/blocks/FileManager";
 import { DashStats } from "../components/blocks/DashStats";
 import { ServerList } from "../components/blocks/ServerList";
 import MapEditor3D from "../components/MapEditor3D";
@@ -585,6 +579,7 @@ export default function App({
   const [currentServerId, setCurrentServerId] = useState<string>("");
   const [javas, setJavas] = useState<{ version: string; path: string; type: string }[]>([]);
   const [scanningJavas, setScanningJavas] = useState(false);
+  const [isFetchingMeta, setIsFetchingMeta] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [aiMappings, setAiMappings] = useState<Record<string, string>>(() => {
     try {
@@ -1125,6 +1120,8 @@ export default function App({
       const resData = await res.json();
       if (!resData.servers) return;
 
+      let serversChanged = false;
+
       Object.entries(resData.servers).forEach(([id, data]: [string, any]) => {
         if (id === currentServerId) {
           setServerState((prev) => {
@@ -1158,6 +1155,19 @@ export default function App({
            });
            multiLogCounts.current[id] = data.logCount;
         }
+      });
+
+      setServers(prev => {
+         let changed = false;
+         const map = prev.map(srv => {
+            const newD = resData.servers[srv.id];
+            if (newD && newD.status && newD.status !== srv.status) {
+               changed = true;
+               return { ...srv, status: newD.status, uptime_human: newD.uptime_human };
+            }
+            return srv;
+         });
+         return changed ? map : prev;
       });
     } catch (error) {
       // server probably down or restarting
@@ -1417,6 +1427,7 @@ export default function App({
   };
 
   const fetchMeta = async (type: string = "paper") => {
+    setIsFetchingMeta(true);
     try {
       const res = await fetch(`/api/meta?type=${type}`);
       const data = await res.json();
@@ -1432,7 +1443,10 @@ export default function App({
           return prev;
         });
       }
-    } catch (e) {}
+    } catch (e) {
+    } finally {
+      setIsFetchingMeta(false);
+    }
   };
 
   // Re-fetch meta when server config type changes, but we want it in a useEffect so let's separate it
@@ -1922,14 +1936,22 @@ export default function App({
     }
   }, [serverState.logs, aiChat, activeTab, autoScroll]);
 
-  const handleAction = async (action: "start" | "stop" | "kill", specificId?: string) => {
+  const handleAction = async (action: "start" | "stop" | "kill" | "restart", specificId?: string) => {
     const targetId = specificId || currentServerId;
     if (!targetId) return;
 
-    if (action === "start" && !specificId) {
+    if ((action === "start" || action === "restart") && !specificId) {
       setActiveTab("console");
     } else if ((action === "stop" || action === "kill") && !specificId) {
       setActiveTab("servers");
+    }
+
+    if (action === "restart") {
+      await handleAction("stop", targetId);
+      setTimeout(() => {
+        handleAction("start", targetId);
+      }, 3000);
+      return;
     }
 
     // Optimistic UI update
@@ -1962,6 +1984,7 @@ export default function App({
         return;
       }
       fetchStatus();
+      fetchServers();
     } catch (error) {
       console.error(`Erro ao ${action}:`, error);
     }
@@ -2948,34 +2971,41 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                       <label className="text-[9px] font-black text-emerald-400 uppercase tracking-widest px-2">
                         Software (Motor)
                       </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          "paper",
-                          "purpur",
-                          "spigot",
-                          "velocity",
-                          "waterfall",
-                          "bungeecord",
-                          "fabric",
-                          "mohist",
-                          "forge",
-                          "vanilla",
-                          "nukkit",
-                          "custom",
-                        ].map((t) => (
-                          <button
-                            key={t}
-                            onClick={() =>
-                              setNewServerConfig({
-                                ...newServerConfig,
-                                type: t,
-                              })
-                            }
-                            className={`px-3 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest border-2 transition-all ${newServerConfig.type === t ? "bg-emerald-500 border-emerald-400 text-white shadow-lg" : "bg-black/20 border-emerald-900 text-emerald-700 hover:border-emerald-600"}`}
-                          >
-                            {t}
-                          </button>
-                        ))}
+                      <div className="relative">
+                        <select
+                          className="w-full bg-black/40 border border-emerald-900/50 rounded-2xl px-6 py-3 text-emerald-50 font-black outline-none focus:border-emerald-500 transition-all appearance-none cursor-pointer"
+                          value={newServerConfig.type}
+                          onChange={(e) => {
+                            const newType = e.target.value;
+                            setNewServerConfig({
+                              ...newServerConfig,
+                              type: newType,
+                            });
+                          }}
+                        >
+                          {[
+                            "paper",
+                            "purpur",
+                            "spigot",
+                            "velocity",
+                            "waterfall",
+                            "bungeecord",
+                            "fabric",
+                            "mohist",
+                            "forge",
+                            "vanilla",
+                            "nukkit",
+                            "custom",
+                          ].sort().map((t) => (
+                            <option key={t} value={t} className="bg-emerald-950 text-emerald-50">
+                              {t.toUpperCase()}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-700 pointer-events-none"
+                          size={16}
+                        />
                       </div>
                     </div>
 
@@ -2999,11 +3029,12 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                     ) : (
                       <div className="space-y-1">
                         <label className="text-[9px] font-black text-emerald-400 uppercase tracking-widest px-2">
-                          Versão
+                          Versão {isFetchingMeta && <span className="animate-pulse text-emerald-500 font-bold lowercase italic">(carregando...)</span>}
                         </label>
                         <div className="relative">
                           <select
-                            className="w-full bg-black/40 border border-emerald-900/50 rounded-2xl px-6 py-3 text-emerald-50 font-black outline-none focus:border-emerald-500 transition-all appearance-none cursor-pointer"
+                            disabled={isFetchingMeta}
+                            className="w-full bg-black/40 border border-emerald-900/50 rounded-2xl px-6 py-3 text-emerald-50 font-black outline-none focus:border-emerald-500 transition-all appearance-none cursor-pointer disabled:opacity-50"
                             value={newServerConfig.version}
                             onChange={(e) =>
                               setNewServerConfig({
@@ -3012,15 +3043,16 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                               })
                             }
                           >
-                            {metadata.versions?.map((v) => (
+                            {!isFetchingMeta && metadata.versions?.map((v) => (
                               <option
                                 key={v}
                                 value={v}
-                                className="bg-black/40 backdrop-blur-md"
+                                className="bg-emerald-950 text-emerald-50"
                               >
                                 {v}
                               </option>
                             ))}
+                            {isFetchingMeta && <option>Aguarde...</option>}
                           </select>
                           <ChevronDown
                             className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-700 pointer-events-none"
@@ -4122,6 +4154,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                          onSelect={setCurrentServerId}
                          onAdd={() => setShowCreateModal(true)}
                          onStatusToggle={(id) => handleAction(servers.find(s => s.id === id)?.status === "online" ? "stop" : "start", id)}
+                         onConfigure={(id) => setEditingServer(servers.find(s => s.id === id) || null)}
                        />
                     </div>
 
@@ -4200,6 +4233,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                        onSelect={setCurrentServerId}
                        onAdd={() => setShowCreateModal(true)}
                        onStatusToggle={(id) => handleAction(servers.find(s => s.id === id)?.status === "online" ? "stop" : "start", id)}
+                       onConfigure={(id) => setEditingServer(servers.find(s => s.id === id) || null)}
                      />
                   </div>
                 </motion.div>
@@ -5324,8 +5358,20 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="bg-black/40 backdrop-blur-md rounded-3xl border border-emerald-900/50 shadow-sm p-4 lg:p-6 min-h-[600px] lg:h-[75vh] flex flex-col relative overflow-hidden group"
+                  className="space-y-4 flex flex-col h-full"
                 >
+                  <div className="flex flex-wrap gap-3 pb-2 border-b border-emerald-900/30 w-full mb-2">
+                    <button onClick={() => handleAction(serverState.status === "online" ? "stop" : "start", currentServerId)} className={`bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-2 rounded-xl shadow-md uppercase tracking-widest text-xs flex items-center gap-2 transition-all`}>
+                      <Power size={16} /> Play / Parar
+                    </button>
+                    <button onClick={() => { setActiveTab("settings"); }} className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black px-4 py-2 rounded-xl shadow-md uppercase tracking-widest text-xs flex items-center gap-2 transition-all">
+                      <Settings2 size={16} /> Configurar
+                    </button>
+                    <button onClick={() => { handleInstall(); }} className="bg-sky-600 hover:bg-sky-500 text-white font-black px-4 py-2 rounded-xl shadow-md uppercase tracking-widest text-xs flex items-center gap-2 transition-all">
+                      <Download size={16} /> Instalar
+                    </button>
+                  </div>
+                  <div className="bg-black/40 backdrop-blur-md rounded-3xl border border-emerald-900/50 shadow-sm p-4 lg:p-6 flex-1 min-h-[600px] lg:min-h-0 flex flex-col relative overflow-hidden group">
                   <ServerConsole 
                     logs={serverState.logs}
                     status={serverState.status}
@@ -5348,6 +5394,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                        setActiveTab("ai");
                     }}
                   />
+                  </div>
                 </motion.div>
               )}
 
@@ -5393,12 +5440,11 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                       currentPath={currentFolder || "/"}
                       onNavigate={(path) => setCurrentFolder(path)}
                       onBack={() => setCurrentFolder(currentFolder.split("/").slice(0, -1).join("/"))}
-                      onRefresh={fetchFiles}
+                      onRefresh={() => fetchFiles(currentFolder || "/")}
                       onUpload={handleFileUpload}
                       onCreateFolder={createFolder}
-                      onDelete={(path) => deleteFile({ path, name: path.split("/").pop() || "" } as any)}
-                      onEdit={(f) => editFile(f)}
-                      isLoading={loadingFiles}
+                      onDelete={(path) => deleteFile(path)}
+                      onEdit={(f) => openFile(f.path)}
                     />
                   )}
                 </motion.div>

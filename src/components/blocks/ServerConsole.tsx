@@ -59,23 +59,61 @@ export const ServerConsole: React.FC<ServerConsoleProps> = ({
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-black/80 rounded-2xl border border-emerald-900/50 shadow-inner overflow-hidden relative">
       {/* Header Info */}
-      <div className="bg-emerald-900/30 flex items-center justify-between py-2 px-4 border-b border-emerald-900/50 relative z-10">
-        <div className="flex items-center gap-4">
+      <div className="bg-emerald-900/30 flex justify-between py-3 px-4 border-b border-emerald-900/50 relative z-10 items-center flex-wrap gap-2">
+        <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${status === "online" ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-red-500"}`} />
-            <span className="text-[10px] font-black text-white uppercase tracking-widest">{serverName}</span>
+            <div className={`w-3 h-3 rounded-full ${status === "online" ? "bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse" : status === "starting" ? "bg-amber-500 animate-pulse shadow-[0_0_8px_#f59e0b]" : status === "stopping" ? "bg-red-500 animate-pulse" : "bg-red-500"}`} />
+            <span className="text-[12px] font-black text-white uppercase tracking-widest">{serverName}</span>
           </div>
-          <span className="text-[9px] font-bold text-emerald-500 uppercase px-2 py-0.5 bg-emerald-500/10 rounded border border-emerald-500/20">{status}</span>
+          <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded border ${
+             status === "online" ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" :
+             status === "starting" ? "text-amber-500 bg-amber-500/10 border-amber-500/20" :
+             status === "stopping" ? "text-rose-500 bg-rose-500/10 border-rose-500/20" :
+             "text-zinc-500 bg-zinc-500/10 border-zinc-500/20"
+          }`}>{status.toUpperCase()}</span>
         </div>
         
-        <div className="flex items-center gap-3">
-           <button onClick={onClear} className="text-zinc-500 hover:text-emerald-400 transition-colors" title="Limpar Logs"><Trash2 size={12} /></button>
+        <div className="flex items-center gap-3 ml-auto flex-wrap">
+           <div className="flex items-center gap-2 mr-4 border-r border-emerald-900/50 pr-4">
+              <button
+                onClick={() => onAction(status === "online" ? "stop" : "start")}
+                disabled={status === "starting" || status === "stopping"}
+                className={`px-3 py-1.5 rounded font-black text-[9px] uppercase tracking-widest transition-all ${
+                  status === "online" 
+                  ? "bg-rose-500/20 text-rose-500 hover:bg-rose-500/30 border border-rose-500/30" 
+                  : status === "offline"
+                  ? "bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30 border border-emerald-500/30"
+                  : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                }`}
+              >
+                  {status === "online" ? "STOP" : status === "offline" ? "START" : status.toUpperCase()}
+              </button>
+              {status === "online" && (
+                <button
+                  onClick={() => onAction("restart")}
+                  className="px-3 py-1.5 rounded font-black text-[9px] uppercase tracking-widest transition-all bg-blue-500/20 text-blue-500 hover:bg-blue-500/30 border border-blue-500/30"
+                >
+                    RESTART
+                </button>
+              )}
+              {status !== "offline" && status !== "stopping" && (
+                <button
+                  onClick={() => onAction("kill")}
+                  className="px-3 py-1.5 rounded flex items-center gap-1 font-black text-[9px] uppercase tracking-widest transition-all bg-red-600/20 text-red-500 hover:bg-red-600/40 border border-red-900/50"
+                  title="Forçar Parada (Kill)"
+                >
+                    <Trash2 size={10} /> KILL
+                </button>
+              )}
+           </div>
+
+           <button onClick={onClear} className="text-zinc-500 hover:text-emerald-400 transition-colors" title="Limpar Logs"><Trash2 size={14} /></button>
            <button onClick={() => {
               const blob = new Blob([logs.join("\n")], { type: "text/plain" });
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a");
               a.href = url; a.download = `logs-${serverName}.txt`; a.click();
-           }} className="text-zinc-500 hover:text-emerald-400 transition-colors" title="Baixar Logs"><Download size={12} /></button>
+           }} className="text-zinc-500 hover:text-emerald-400 transition-colors" title="Baixar Logs"><Download size={14} /></button>
         </div>
       </div>
 
