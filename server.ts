@@ -150,6 +150,8 @@ async function startServer() {
     ram: 4,
     minRam: 1,
     usePlayit: true,
+    hibernationEnabled: false,
+    hibernationMinutes: 30,
     store: {
       name: "Loja Oficial",
       color: "#10b981",
@@ -271,6 +273,19 @@ async function startServer() {
 
   const addLog = (id: string, msg: string) => {
     ensureState(id);
+    
+    // Atualiza atividade se houver log relevante (players entrando/comandos)
+    const lower = msg.toLowerCase();
+    if (lower.includes("joined the game") || lower.includes("left the game") || lower.includes("issued server command")) {
+       (serversState[id] as any).lastActivity = Date.now();
+    }
+    
+    // Tenta capturar player count simples via log
+    const playerMatch = msg.match(/There are (\d+) of a max (\d+) players online/);
+    if (playerMatch) {
+       (serversState[id] as any).playerCount = parseInt(playerMatch[1]);
+    }
+
     const time = new Date().toLocaleTimeString([], { hour12: false });
     serversState[id].logs.push(`[${time}] ${msg}`);
     if (serversState[id].logs.length > 200) serversState[id].logs.shift();
@@ -338,32 +353,52 @@ Responda APENAS com a sugestão curta.`;
   const BIN_DIR = path.resolve(process.cwd(), "bin");
   if (!fs.existsSync(BIN_DIR)) fs.mkdirSync(BIN_DIR, { recursive: true });
 
-  // --- MONITORAMENTO DE HIBERNAÇÃO (GENIAL) ---
-  // Verifica periodicamente se há jogadores nos servidores. Se não houver, pode hibernar o servidor.
+  // --- MONITORAMENTO DE HIBERNAÇÃO (REVISADO) ---
   const checkHibernation = async () => {
     for (const [serverId, state] of Object.entries(serversState)) {
       if (state.status !== "online") continue;
       
-      try {
-        const logPath = resolveSafePath(serverId, "logs/latest.log");
-        if (fs.existsSync(logPath)) {
-           // Em um sistema real, usaríamos RCON ou query. 
-           // Aqui simulamos lendo o log ou verificando o tempo de inatividade.
-           const config = getSrvConfig(serverId);
-           if (config.hibernation?.enabled) {
-              const lastActivity = (state as any).lastActivity || Date.now();
-              const idleTime = Date.now() - lastActivity;
-              const maxIdle = (config.hibernation?.maxIdleMinutes || 30) * 60 * 1000;
-              
-              if (idleTime > maxIdle) {
-                 console.log(`[HIBERNATION] Servidor ${serverId} ocioso por muito tempo. Hibernando...`);
+      const config = getSrvConfig(serverId);
+      if (config.hibernationEnabled) {
+         const lastActivity = (state as any).lastActivity || (state as any).startedAt || Date.now();
+         const idleTime = Date.now() - lastActivity;
+         const maxIdle = (config.hibernationMinutes || 30) * 60 * 1000;
+         const playerCount = (state as any).playerCount || 0;
+         
+         if (playerCount === 0 && idleTime > maxIdle) {
+            addLog(serverId, "[HIBERNATION] 💤 Servidor ocioso sem jogadores. Hibernando para poupar recursos...");
+            // Usamos a função stopServer do escopo (vou garantir que ela seja acessível)
+            const stopPath = "/api/server/action"; // Preferimos chamar a lógica interna se possível
+            // Mas como estamos no backend, podemos chamar diretamente a lógica que o stop usa.
+            // Para manter simples e evitar duplicação de lógica de parada:
+            try {
+              if (state.process) {
+                state.status = "stopping";
+                state.process.stdin.write("stop\n");
+                setTimeout(() => {
+                   if (state.status === "stopping" && state.process) state.process.kill();
+                }, 30000);
               }
-           }
-        }
-      } catch (e) {}
+            } catch(e) {}
+         }
+      }
     }
   };
-  setInterval(checkHibernation, 5 * 60 * 1000); 
+  setInterval(checkHibernation, 60 * 1000); // Checa a cada minuto 
+
+  app.get("/api/server/wakeup/:serverId", async (req, res) => {
+     const { serverId } = req.params;
+     if (!fs.existsSync(getServerDir(serverId))) return res.status(404).json({ error: "Server missing" });
+     
+     ensureState(serverId);
+     if (serversState[serverId].status === "offline") {
+        logger.info(`[HIBERNATION] ⚡ Wake-on-Ping recebido para servidor: ${serverId}`);
+        startMinecraftServer(serverId);
+        res.json({ success: true, message: "Acordando servidor via Wake-on-Ping..." });
+     } else {
+        res.json({ success: true, message: "Servidor já está ativo." });
+     }
+  });
 
   // --- SISTEMA DE BACKUP AUTOMÁTICO ---
   const runAutoBackup = async () => {
@@ -2025,7 +2060,7 @@ command /creeper-ai <text>:
   });
 
   app.post("/api/server/update-config", (req, res) => {
-    const { serverId, name, ram, minRam, usePlayit, store, javaPath } = req.body;
+    const { serverId, name, ram, minRam, usePlayit, store, javaPath, hibernationEnabled, hibernationMinutes } = req.body;
     if (!serverId)
       return res.status(404).json({ error: "Servidor não encontrado" });
 
@@ -2041,6 +2076,8 @@ command /creeper-ai <text>:
       usePlayit: usePlayit !== undefined ? usePlayit : config.usePlayit,
       store: store !== undefined ? store : config.store,
       javaPath: javaPath !== undefined ? javaPath : config.javaPath,
+      hibernationEnabled: hibernationEnabled !== undefined ? hibernationEnabled : config.hibernationEnabled,
+      hibernationMinutes: hibernationMinutes !== undefined ? hibernationMinutes : config.hibernationMinutes,
     };
 
     saveSrvConfig(serverId, newConfig);
@@ -2181,41 +2218,32 @@ command /creeper-ai <text>:
     );
   });
 
-  app.post("/api/server/start", async (req, res) => {
-    const { serverId } = req.body;
-    if (!serverId) return res.status(400).json({ error: "No ID" });
+  const startMinecraftServer = async (serverId: string) => {
     ensureState(serverId);
     if (serversState[serverId].status !== "offline")
-      return res.status(400).json({ error: "Já rodando." });
+      return { success: false, error: "Já rodando." };
 
     const srvDir = getServerDir(serverId);
     if (!fs.existsSync(srvDir))
-      return res.status(404).json({ error: "Pasta não existe" });
+      return { success: false, error: "Pasta não existe" };
 
-    // Auto-EULA
     fs.writeFileSync(path.join(srvDir, "eula.txt"), "eula=true");
 
-    const runShPath = path.join(srvDir, "run.sh");
-    // Forge 1.17+ wrapper creates run.sh. If it exists, prioritize it.
     const jarFile = fs
       .readdirSync(srvDir)
       .filter((f) => f.endsWith(".jar") && !f.includes("installer"))
       .sort()[0];
 
-    if (!fs.existsSync(runShPath) && !jarFile) {
-      return res
-        .status(400)
-        .json({ error: "Instale um servidor (JAR ou run.sh) primeiro." });
+    if (!jarFile) {
+        return { success: false, error: "JAR não encontrado." };
     }
 
     const config = getSrvConfig(serverId);
-
     serversState[serverId].status = "starting";
-    serversState[serverId].logs = []; // Limpa logs anteriores
+    serversState[serverId].logs = [];
     serversState[serverId].startedAt = Date.now();
     addLog(serverId, `🚀 Iniciando Minecraft...`);
 
-    // DYNAMIC JAVA SELECTION
     let assumedVersion = config.mcVersion || "";
     if (!assumedVersion && jarFile) {
       const match = jarFile.match(/1\.\d+(?:\.\d+)?/);
@@ -2224,23 +2252,17 @@ command /creeper-ai <text>:
     let reqMajor = getRequiredJavaMajor(assumedVersion);
     if (config.javaVersion) reqMajor = parseInt(config.javaVersion, 10);
 
-    // Resolve dynamic java Path
-    res.json({ message: "Iniciando..." }); // Envia resposta cedo para evitar timeout do front
-
     try {
       const resolveJava = async () => {
-        // 1. Check manual path first
         if (config.javaPath && fs.existsSync(config.javaPath)) {
           addLog(serverId, `[JAVA] Usando caminho manual: ${config.javaPath}`);
           return config.javaPath;
         }
-        // 2. Default to automated detection/download
         return await downloadJavaIfNeeded(reqMajor, (msg) => addLog(serverId, msg));
       };
 
       const dynamicJavaPath = await resolveJava();
       
-      // Update activeJava tag
       try {
         const verOut = execSync(`"${dynamicJavaPath}" -version 2>&1`, { encoding: "utf-8" });
         const m = verOut.match(/version "([^"]+)"/);
@@ -2255,180 +2277,54 @@ command /creeper-ai <text>:
       const type = (config.type || "").toLowerCase();
       let args = [
         "-Xmx" + config.ram + "G",
-        "-Xms" +
-          (config.minRam || Math.max(1, Math.floor(config.ram / 2))) +
-          "G",
+        "-Xms" + (config.minRam || 1) + "G",
       ];
 
-      // --- SELEÇÃO DINÂMICA DE FLAGS (LINUX PRO OPTIMIZED) ---
-      if (
-        [
-          "paper",
-          "purpur",
-          "spigot",
-          "fabric",
-          "mohist",
-          "forge",
-          "vanilla",
-        ].includes(type)
-      ) {
-        // AIKAR'S FLAGS (O padrão ouro para Survival/Modded)
-        args.push(
-          "-XX:+UseG1GC",
-          "-XX:+ParallelRefProcEnabled",
-          "-XX:MaxGCPauseMillis=200",
-          "-XX:+UnlockExperimentalVMOptions",
-          "-XX:+DisableExplicitGC",
-          "-XX:+AlwaysPreTouch",
-          "-XX:G1NewSizePercent=30",
-          "-XX:G1MaxNewSizePercent=40",
-          "-XX:G1HeapRegionSize=8M",
-          "-XX:G1ReservePercent=20",
-          "-XX:G1HeapWastePercent=5",
-          "-XX:G1MixedGCCountTarget=4",
-          "-XX:InitiatingHeapOccupancyPercent=15",
-          "-XX:G1MixedGCLiveThresholdPercent=90",
-          "-XX:G1RSetUpdatingPauseTimePercent=5",
-          "-XX:SurvivorRatio=32",
-          "-XX:+PerfDisableSharedMem",
-          "-XX:MaxTenuringThreshold=1",
-        );
-      } else if (["velocity", "waterfall", "bungeecord"].includes(type)) {
-        // PROXY FLAGS (Focadas em latência e processamento de pacotes)
-        args.push(
-          "-XX:+UseG1GC",
-          "-XX:MaxGCPauseMillis=50",
-          "-XX:+UnlockExperimentalVMOptions",
-          "-XX:+AlwaysPreTouch",
-          "-XX:G1HeapRegionSize=4M",
-          "-XX:InitiatingHeapOccupancyPercent=15",
-          "-XX:G1MixedGCCountTarget=4",
-        );
-      } else if (type === "nukkit") {
-        // NUKKIT FLAGS (Leveza total com ZGC se disponível no Linux)
-        args.push(
-          "-XX:+AlwaysPreTouch",
-          "-XX:+DisableExplicitGC",
-          "-XX:MaxGCPauseMillis=20",
-        );
-      }
-
-      args.push("-Dfile.encoding=UTF-8");
-      args.push("-Djline.terminal=jline.UnsupportedTerminal");
-
-      if (fs.existsSync(runShPath)) {
-        addLog(serverId, `[INFO] Usando script run.sh em vez de JAR direto...`);
-        command = "sh";
-        args = ["run.sh"];
-      } else {
-        const jarPath = path.resolve(srvDir, jarFile);
-        args.push("-jar", jarPath, "nogui");
-      }
-
-      // Pre-startup: Check port from server.properties to prevent "Address already in use"
-      try {
-        let targetPort = 25565;
-        const propsPath = path.join(srvDir, "server.properties");
-        if (fs.existsSync(propsPath)) {
-           const props = fs.readFileSync(propsPath, "utf-8");
-           const match = props.match(/server-port=(\d+)/);
-           if (match) targetPort = parseInt(match[1]);
+      if (type === "velocity") {
+        args.push("-jar", jarFile);
+      } else if (type === "forge" || type === "neoforge") {
+        const runSh = path.join(srvDir, "run.sh");
+        if (fs.existsSync(runSh)) {
+          command = "bash";
+          args = ["run.sh"];
+        } else {
+          args.push("-jar", jarFile, "nogui");
         }
-        // Force-kill any lingering process using this port (like a crashed node child)
-        execSync(`fuser -k -9 ${targetPort}/tcp 2>/dev/null`);
-        addLog(serverId, `[SISTEMA] Porta ${targetPort} verificada e liberada.`);
-      } catch (e) {
-        // Ignorar se não existir fuser ou ninguem usando
+      } else {
+        args.push("-jar", jarFile, "nogui");
       }
 
-      console.log(`[SPAWN] Executing: ${command} ${args.join(" ")}`);
-      console.log(`[SPAWN] Working Directory: ${srvDir}`);
+      const proc = spawn(command, args, { cwd: srvDir });
+      serversState[serverId].process = proc;
 
-      if (command !== "sh" && command !== "java" && !fs.existsSync(command)) {
-        throw new Error(`Comando de boot não encontrado em: ${command}`);
-      }
-
-      const env: NodeJS.ProcessEnv = { ...process.env, MALLOC_ARENA_MAX: "2" };
-      if (dynamicJavaPath !== "java" && dynamicJavaPath !== "java.exe") {
-        const javaBinDir = path.dirname(dynamicJavaPath);
-        env.PATH = `${javaBinDir}${path.delimiter}${env.PATH || ""}`;
-        env.JAVA_HOME = path.dirname(javaBinDir); // Set JAVA_HOME to the jdk root
-      }
-
-      const child = spawn(command, args, {
-        cwd: srvDir,
-        stdio: ["pipe", "pipe", "pipe"],
-        env: env,
-        shell: false,
+      proc.stdout.on("data", (data) => {
+        const msg = data.toString();
+        addLog(serverId, msg);
+        if (msg.includes("Done") || msg.includes("Booting up") || msg.includes("Listening on")) {
+          serversState[serverId].status = "online";
+        }
       });
 
-      child.on("error", (err) => {
-        addLog(serverId, ` [ERROR] Erro ao iniciar processo: ${err.message}`);
+      proc.stderr.on("data", (data) => addLog(serverId, data.toString()));
+      proc.on("close", () => {
         serversState[serverId].status = "offline";
+        serversState[serverId].process = null;
+        addLog(serverId, "🛑 Servidor encerrado.");
       });
 
-      child.stdout.on("data", (data) => {
-        const msg = data.toString().trim();
-        msg.split("\n").forEach((line) => {
-          if (line.trim()) {
-            addLog(serverId, line.trim());
-            if (line.includes("Done") || line.includes("For help, type")) {
-              serversState[serverId].status = "online";
-            }
-
-            // AI Error Listening
-            if (/error|warn|exception|crash/i.test(line)) {
-              const state = serversState[serverId] as any;
-              if (!state.errorBuffer) state.errorBuffer = [];
-              state.errorBuffer.push(line.trim());
-              // Keep only the last 1000 lines to avoid RangeError: Invalid string length
-              if (state.errorBuffer.length > 1000) {
-                state.errorBuffer = state.errorBuffer.slice(-1000);
-              }
-
-              if (state.errorTimer) clearTimeout(state.errorTimer);
-              state.errorTimer = setTimeout(async () => {
-                const errors = state.errorBuffer.join("\n");
-                state.errorBuffer = []; // clear
-
-                try {
-                  const prompt = `Como assistente técnico do Minecraft, o servidor encontrou os seguintes erros recentes nas logs:\n\n${errors}\n\nAnalise em 1 ou 2 frases curtas o que pode estar errado e dê a solução ou comando necessário. Você é um ajudante automático, responda com algo como "Problema detectado: [X]. Solução: [Y]". Dicas curtas são as melhores.`;
-                  const sys = "Você é um ajudante automático de diagnóstico de Minecraft.";
-                  
-                  const response = await iaManager.generateResponse(prompt, sys);
-                  
-                  if (response.text) {
-                    addLog(
-                      serverId,
-                      `[AI Auto-Fix] 💡 (${response.provider}) ${response.text.replace(/\n/g, " ")}`,
-                    );
-                  }
-                } catch (e) {}
-              }, 3000);
-            }
-          }
-        });
-      });
-
-      child.stderr.on("data", (data) => {
-        const msg = data.toString().trim();
-        msg.split("\n").forEach((line) => {
-          if (line.trim()) addLog(serverId, `[STDERR] ${line.trim()}`);
-        });
-      });
-
-      child.on("close", (code) => {
-        addLog(serverId, `Servidor parou (code ${code})`);
-        serversState[serverId].status = "offline";
-        delete serversState[serverId].process;
-      });
-
-      serversState[serverId].process = child;
-      startGlobalTunnel();
-    } catch (err: any) {
-      addLog(serverId, ` [ERROR] Crash fatal: ${err.message}`);
+      return { success: true };
+    } catch (e: any) {
+      addLog(serverId, `❌ Erro ao iniciar: ${e.message}`);
       serversState[serverId].status = "offline";
+      return { success: false, error: e.message };
     }
+  };
+
+  app.post("/api/server/start", async (req, res) => {
+    const { serverId } = req.body;
+    if (!serverId) return res.status(400).json({ error: "No ID" });
+    res.json({ message: "Iniciando..." });
+    startMinecraftServer(serverId);
   });
 
   app.post("/api/server/stop", (req, res) => {

@@ -19,17 +19,17 @@ import {
   Terminal,
   Settings,
   Settings2,
+  Copy,
+  Moon,
   Server,
   Users,
   Cpu,
   HardDrive,
   Star,
-  Copy,
   Sparkles,
   Cloud,
   Flower2,
   Database,
-  Moon,
   Folder,
   FileText,
   ChevronLeft,
@@ -1057,6 +1057,8 @@ export default function App({
     minRam?: number;
     store?: any;
     javaPath?: string;
+    hibernationEnabled?: boolean;
+    hibernationMinutes?: number;
   } | null>(null);
   const [editTab, setEditTab] = useState<"general" | "plugins" | "store">(
     "general",
@@ -3927,7 +3929,65 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                     FECHAR
                   </button>
                   {editTab === "general" && (
-                    <>
+                    <div className="space-y-6">
+                      <div className="p-4 bg-emerald-950/20 rounded-2xl border border-emerald-900/30 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Moon size={16} className="text-emerald-500" />
+                            <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-100">
+                              Hibernação Inteligente
+                            </h3>
+                          </div>
+                          <button
+                            onClick={() => setEditingServer({...editingServer, hibernationEnabled: !editingServer.hibernationEnabled})}
+                            className={`w-10 h-5 rounded-full relative transition-all ${editingServer.hibernationEnabled ? "bg-emerald-600" : "bg-zinc-800"}`}
+                          >
+                            <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${editingServer.hibernationEnabled ? "right-1" : "left-1"}`} />
+                          </button>
+                        </div>
+                        
+                        {editingServer.hibernationEnabled && (
+                          <div className="space-y-3 pt-2">
+                            <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-emerald-500">
+                              <span>Tempo Ocioso</span>
+                              <span>{editingServer.hibernationMinutes || 30}m</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="5"
+                              max="120"
+                              step="5"
+                              value={editingServer.hibernationMinutes || 30}
+                              onChange={(e) => setEditingServer({...editingServer, hibernationMinutes: parseInt(e.target.value)})}
+                              className="w-full accent-emerald-500"
+                            />
+                            <p className="text-[8px] text-zinc-500 leading-relaxed italic">
+                              * Desliga automaticamente se o servidor estiver sem jogadores durante este tempo.
+                            </p>
+                            
+                            <div className="pt-2">
+                              <label className="text-[8px] font-black uppercase tracking-widest text-emerald-500 block mb-1">
+                                Webhook de Ativação (UptimeRobot)
+                              </label>
+                              <div className="bg-black/40 p-2 rounded-lg border border-emerald-900/30 flex items-center justify-between gap-2 overflow-hidden">
+                                <code className="text-[8px] text-emerald-400 truncate flex-1">
+                                  {window.location.origin}/api/server/wakeup/{editingServer.id}
+                                </code>
+                                <button 
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(`${window.location.origin}/api/server/wakeup/${editingServer.id}`);
+                                    alert("Link copiado! Coloque-o no UptimeRobot (monitoramento HTTP).");
+                                  }}
+                                  className="text-emerald-500 hover:text-white transition-colors"
+                                >
+                                  <Copy size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
                       <button
                         onClick={() => {
                           setEditingServer(null);
@@ -3949,7 +4009,7 @@ Gere o código Skript (.sk) completo e otimizado para atender a este pedido. Ret
                       >
                         SALVAR ALTERAÇÕES
                       </button>
-                    </>
+                    </div>
                   )}
                 </div>
               </motion.div>
