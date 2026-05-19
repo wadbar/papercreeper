@@ -80,12 +80,18 @@ async function downloadFile(url: string, dest: string, onLog?: (msg: string) => 
       return false;
     }
     
-    // Ler como arrayBuffer para memória (seguro para arquivos <500MB em VPS moderna e evita problemas de Readable stream compatibilidade)
-    const arrayBuffer = await res.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    if (!res.body) throw new Error("No response body");
     
     const partDest = dest + ".part";
-    fs.writeFileSync(partDest, buffer);
+    const fileStream = fs.createWriteStream(partDest);
+    
+    // Convert ReadableStream to Node.js Readable and pipe it to fileStream
+    const { Readable } = await import('stream');
+    const { finished } = await import('stream/promises');
+    
+    const body: unknown = res.body; 
+    await finished(Readable.fromWeb(body as import('stream/web').ReadableStream).pipe(fileStream));
+
     fs.renameSync(partDest, dest);
     return true;
   } catch (e: any) {
@@ -250,6 +256,8 @@ async function startServer() {
       process?: any;
       activeJava?: string;
       startedAt?: number;
+      stopTimer?: any;
+      isInstalling?: boolean;
     }
   > = {};
 
@@ -373,9 +381,10 @@ Responda APENAS com a sugestão curta.`;
             // Para manter simples e evitar duplicação de lógica de parada:
             try {
               if (state.process) {
+                if (state.stopTimer) clearTimeout(state.stopTimer);
                 state.status = "stopping";
                 state.process.stdin.write("stop\n");
-                setTimeout(() => {
+                state.stopTimer = setTimeout(() => {
                    if (state.status === "stopping" && state.process) state.process.kill();
                 }, 30000);
               }
@@ -2343,10 +2352,12 @@ command /creeper-ai <text>:
         addLog(serverId, `❌ Erro do processo: ${err.message}`);
         serversState[serverId].status = "offline";
         serversState[serverId].process = null;
+        if (serversState[serverId].stopTimer) clearTimeout(serversState[serverId].stopTimer);
       });
       proc.on("close", () => {
         serversState[serverId].status = "offline";
         serversState[serverId].process = null;
+        if (serversState[serverId].stopTimer) clearTimeout(serversState[serverId].stopTimer);
         addLog(serverId, "🛑 Servidor encerrado.");
       });
 
@@ -2369,10 +2380,11 @@ command /creeper-ai <text>:
     const { serverId } = req.body;
     const srv = serversState[serverId];
     if (srv && srv.process) {
+      if (srv.stopTimer) clearTimeout(srv.stopTimer);
       srv.status = "stopping";
       srv.process.stdin.write("stop\n");
       // Fallback timeout
-      setTimeout(() => {
+      srv.stopTimer = setTimeout(() => {
         if (serversState[serverId]?.status === "stopping") {
           addLog(serverId, "[WARN] Parada demorada, enviando SIGTERM...");
           srv.process.kill();
@@ -2538,6 +2550,12 @@ command /creeper-ai <text>:
 
   app.post("/api/server/install", async (req, res) => {
     const { serverId, type, version, customUrl } = req.body;
+    ensureState(serverId);
+    if (serversState[serverId].isInstalling) {
+      return res.status(409).json({ error: "Uma instalação já está em andamento para este servidor!" });
+    }
+    serversState[serverId].isInstalling = true;
+
     addLog(
       serverId,
       `[INSTALLER] Iniciando instalação de ${type === "custom" ? "Custom JAR" : type + " " + version}...`,
@@ -2629,6 +2647,7 @@ command /creeper-ai <text>:
 
     if (!url) {
       addLog(serverId, `[ERROR] URL não encontrada para ${type} ${version}`);
+      serversState[serverId].isInstalling = false;
       return res.status(400).json({ error: "URL ou Software não suportado." });
     }
 
@@ -2689,6 +2708,7 @@ command /creeper-ai <text>:
                   `[SUCCESS] Forge ${version} instalado! Use START para ligar o servidor.`,
                 );
               }
+              serversState[serverId].isInstalling = false;
             },
           );
         } else {
@@ -2697,8 +2717,11 @@ command /creeper-ai <text>:
             `[SUCCESS] ${type} ${version || ""} instalado com sucesso!`,
           );
           fs.writeFileSync(path.join(srvDir, "eula.txt"), "eula=true");
+          serversState[serverId].isInstalling = false;
         }
       }
+    }).catch(e => {
+       serversState[serverId].isInstalling = false;
     });
     res.json({ message: "Download iniciado em segundo plano." });
   });

@@ -143,8 +143,9 @@ body.paper-pig {
 }
 
 .styles-module__header__hW2zP > div > div > h1 {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   text-transform: uppercase;
   font-weight: bold;
   letter-spacing: 0.05em;
+  transition: all 0.3s ease-in-out;
 }
